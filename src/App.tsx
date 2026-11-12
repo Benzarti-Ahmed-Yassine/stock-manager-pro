@@ -1,41 +1,47 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import AppLayout from "@/components/AppLayout";
-import Dashboard from "@/pages/Dashboard";
-import Products from "@/pages/Products";
-import StockMovement from "@/pages/StockMovement";
-import Clients from "@/pages/Clients";
-import ClientSheets from "@/pages/ClientSheets";
-import DeliveryNotes from "@/pages/DeliveryNotes";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound.tsx";
+import { Toaster } from "sonner";
+import Layout from "@/components/layout/Layout";
+import DashboardPage from "@/pages/DashboardPage";
+import StockPage from "@/pages/StockPage";
+import RepairsPage from "@/pages/RepairsPage";
+import OrdersPage from "@/pages/OrdersPage";
+import SalesPage from "@/pages/SalesPage";
+import ClientsPage from "@/pages/ClientsPage";
+import SuppliersPage from "@/pages/SuppliersPage";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 1000 * 30 },
+  },
+});
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <HashRouter>
-        <AppLayout>
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Layout>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/stock" element={<StockMovement />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/fiches-materiel" element={<ClientSheets />} />
-            <Route path="/bons-livraison" element={<DeliveryNotes />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/stock" element={<StockPage />} />
+            <Route path="/reparations" element={<RepairsPage />} />
+            <Route path="/commandes" element={<OrdersPage />} />
+            <Route path="/ventes" element={<SalesPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/fournisseurs" element={<SuppliersPage />} />
           </Routes>
-        </AppLayout>
-      </HashRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        </Layout>
+      </BrowserRouter>
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          duration: 3000,
+        }}
+      />
+    </QueryClientProvider>
+  );
+}
 
-export default App;

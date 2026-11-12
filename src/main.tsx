@@ -1,5 +1,15 @@
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
 import "./index.css";
+import { seedDemoData } from "./lib/storage";
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Seed demo data on first launch
+seedDemoData();
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+

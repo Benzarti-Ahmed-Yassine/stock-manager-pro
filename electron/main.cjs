@@ -14,8 +14,8 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
     },
-    title: "SOBRATECH - Gestion de Stock",
-    backgroundColor: '#ffffff',
+    title: "Boutique Informatique & SAV",
+    backgroundColor: '#0f172a',
     icon: path.join(__dirname, '../public/logo.png'),
   });
 
