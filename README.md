@@ -2,6 +2,8 @@
 
 Application professionnelle de gestion pour magasins de vente de matériel informatique, pièces détachées et atelier de réparation SAV.
 
+📖 **Consultez le [Guide d'utilisation complet (GUIDE_UTILISATION.md)](./GUIDE_UTILISATION.md) pour apprendre à utiliser l'application au quotidien.**
+
 ---
 
 ## 🚀 Fonctionnalités Principales
