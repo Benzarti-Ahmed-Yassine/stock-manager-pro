@@ -1,272 +1,651 @@
+import { useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  Package, Wrench, ShoppingCart, AlertTriangle,
-  TrendingUp, Users, Receipt, AlertCircle
+  Wrench, CheckCircle2, Clock, AlertTriangle, AlertCircle,
+  Package, ShoppingCart, ArrowRight, User, Phone, Laptop,
+  Cpu, Check, RefreshCw, PlusCircle, Sparkles, Filter, Hourglass
 } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
-import { stockStorage, repairStorage, orderStorage, saleStorage, clientStorage } from "@/lib/storage";
-import { formatPrice, formatDateTime } from "@/lib/utils";
-import { useMemo } from "react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend
-} from "recharts";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { repairStorage, stockStorage, orderStorage } from "@/lib/storage";
+import { formatDateTime, cn } from "@/lib/utils";
+import type { RepairItem, RepairStatus, RepairPriority } from "@/types";
+import { toast } from "sonner";
 
-function getRepairStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    reçu: "Reçu", en_diagnostic: "Diagnostic", en_attente_pièce: "Attente pièce",
-    en_cours: "En cours", terminé: "Terminé", livré: "Livré", annulé: "Annulé",
-  };
-  return map[status] || status;
-}
+const STATUS_LABELS: Record<RepairStatus, { label: string; color: string; badgeClass: string }> = {
+  reçu: { label: "Reçu", color: "#3b82f6", badgeClass: "status-reçu" },
+  en_diagnostic: { label: "En diagnostic", color: "#a855f7", badgeClass: "status-en_diagnostic" },
+  en_attente_pièce: { label: "Attente pièce", color: "#f97316", badgeClass: "status-en_attente_pièce" },
+  en_cours: { label: "En réparation", color: "#06b6d4", badgeClass: "status-en_cours" },
+  terminé: { label: "Réparé (Prêt)", color: "#22c55e", badgeClass: "status-terminé" },
+  livré: { label: "Livré au client", color: "#64748b", badgeClass: "status-livré" },
+  annulé: { label: "Annulé", color: "#ef4444", badgeClass: "status-annulé" },
+};
 
 export default function DashboardPage() {
-  const stock = stockStorage.getAll();
-  const repairs = repairStorage.getAll();
-  const orders = orderStorage.getAll();
-  const sales = saleStorage.getAll();
-  const clients = clientStorage.getAll();
+  const navigate = useNavigate();
+  const [repairs, setRepairs] = useState<RepairItem[]>(() => repairStorage.getAll());
+  const [stock, setStock] = useState(() => stockStorage.getAll());
+  const [orders, setOrders] = useState(() => orderStorage.getAll());
 
-  const today = new Date().toDateString();
-  const thisMonth = new Date().getMonth();
-  const thisYear = new Date().getFullYear();
+  // Filter for the "A réparer" section
+  const [filterActiveTab, setFilterActiveTab] = useState<"all_pending" | "attente_piece" | "diagnostic" | "urgents">("all_pending");
 
-  const stats = useMemo(() => {
-    const stockFaible = stock.filter(s => s.status === "stock_faible").length;
-    const enRupture = stock.filter(s => s.status === "rupture").length;
-    const stockValeur = stock.reduce((acc, s) => acc + s.prixAchat * s.quantite, 0);
+  const refreshData = () => {
+    setRepairs(repairStorage.getAll());
+    setStock(stockStorage.getAll());
+    setOrders(orderStorage.getAll());
+  };
 
-    const reparationsActives = repairs.filter(r =>
-      ["reçu", "en_diagnostic", "en_attente_pièce", "en_cours"].includes(r.status)
-    ).length;
-    const reparationsEnAttente = repairs.filter(r => r.status === "en_attente_pièce").length;
-
-    const commandesEnCours = orders.filter(o =>
-      ["envoyée", "confirmée", "en_transit", "reçue_partielle"].includes(o.status)
-    ).length;
-
-    const ventesJour = sales.filter(s => new Date(s.dateVente).toDateString() === today);
-    const ventesMois = sales.filter(s => {
-      const d = new Date(s.dateVente);
-      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+  // Quick action from dashboard to update repair status
+  const handleQuickStatusChange = (repairId: string, newStatus: RepairStatus) => {
+    repairStorage.update(repairId, {
+      status: newStatus,
+      dateFin: newStatus === "terminé" || newStatus === "livré" ? new Date().toISOString() : undefined,
     });
+    refreshData();
+    toast.success(`Statut mis à jour : ${STATUS_LABELS[newStatus].label}`);
+  };
+
+  // Operational metrics - STRICTLY NON-MONETARY
+  const stats = useMemo(() => {
+    // 1. Choses à réparer (en atelier actif)
+    const enAttenteDiagnostic = repairs.filter(r => r.status === "reçu" || r.status === "en_diagnostic").length;
+    const enAttentePiece = repairs.filter(r => r.status === "en_attente_pièce").length;
+    const enCoursReparation = repairs.filter(r => r.status === "en_cours").length;
+    const totalAReparer = enAttenteDiagnostic + enAttentePiece + enCoursReparation;
+
+    // 2. Choses réparées
+    const reparesPrets = repairs.filter(r => r.status === "terminé").length;
+    const livresClotures = repairs.filter(r => r.status === "livré").length;
+    const totalRepares = reparesPrets + livresClotures;
+
+    // 3. Urgences & alertes
+    const urgents = repairs.filter(r =>
+      r.priorite === "urgente" && ["reçu", "en_diagnostic", "en_attente_pièce", "en_cours"].includes(r.status)
+    ).length;
+
+    // 4. Stock atelier & commandes
+    const piecesRupture = stock.filter(s => s.status === "rupture").length;
+    const piecesFaibles = stock.filter(s => s.status === "stock_faible").length;
+    const commandesEnTransit = orders.filter(o => ["envoyée", "confirmée", "en_transit"].includes(o.status)).length;
 
     return {
-      stockTotal: stock.length,
-      stockFaible, enRupture, stockValeur,
-      reparationsActives, reparationsEnAttente,
-      commandesEnCours,
-      ventesJour: ventesJour.length,
-      ventesJourMontant: ventesJour.reduce((a, s) => a + s.montantTotal, 0),
-      ventesMois: ventesMois.length,
-      ventesMoisMontant: ventesMois.reduce((a, s) => a + s.montantTotal, 0),
-      clientsTotal: clients.length,
+      totalAReparer,
+      enAttenteDiagnostic,
+      enAttentePiece,
+      enCoursReparation,
+      reparesPrets,
+      livresClotures,
+      totalRepares,
+      urgents,
+      piecesRupture,
+      piecesFaibles,
+      commandesEnTransit,
     };
-  }, [stock, repairs, orders, sales, clients]);
+  }, [repairs, stock, orders]);
 
-  // Chart: ventes par catégorie stock
-  const categoryData = useMemo(() => {
-    const cats: Record<string, number> = {};
-    stock.forEach(s => {
-      cats[s.categorie] = (cats[s.categorie] || 0) + s.quantite;
+  // List: "Choses à réparer"
+  const pendingRepairs = useMemo(() => {
+    let list = repairs.filter(r =>
+      ["reçu", "en_diagnostic", "en_attente_pièce", "en_cours"].includes(r.status)
+    );
+
+    if (filterActiveTab === "attente_piece") {
+      list = list.filter(r => r.status === "en_attente_pièce");
+    } else if (filterActiveTab === "diagnostic") {
+      list = list.filter(r => r.status === "reçu" || r.status === "en_diagnostic");
+    } else if (filterActiveTab === "urgents") {
+      list = list.filter(r => r.priorite === "urgente" || r.priorite === "haute");
+    }
+
+    return list.sort((a, b) => {
+      // Prioritize "urgente"
+      if (a.priorite === "urgente" && b.priorite !== "urgente") return -1;
+      if (b.priorite === "urgente" && a.priorite !== "urgente") return 1;
+      return new Date(b.dateReception).getTime() - new Date(a.dateReception).getTime();
     });
-    return Object.entries(cats)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 7)
-      .map(([name, value]) => ({ name, value }));
+  }, [repairs, filterActiveTab]);
+
+  // List: "Choses réparées" (Terminés prêts pour retrait & Livrés récents)
+  const completedRepairs = useMemo(() => {
+    return repairs
+      .filter(r => r.status === "terminé" || r.status === "livré")
+      .sort((a, b) => {
+        // "terminé" first so the shop sees who needs to pick up their PC
+        if (a.status === "terminé" && b.status === "livré") return -1;
+        if (b.status === "terminé" && a.status === "livré") return 1;
+        return new Date(b.dateReception).getTime() - new Date(a.dateReception).getTime();
+      })
+      .slice(0, 7);
+  }, [repairs]);
+
+  // Alert stock parts needed for repairs
+  const criticalParts = useMemo(() => {
+    return stock
+      .filter(s => s.status !== "en_stock")
+      .sort((a, b) => a.quantite - b.quantite)
+      .slice(0, 6);
   }, [stock]);
-
-  // Réparations récentes
-  const recentRepairs = repairs
-    .sort((a, b) => new Date(b.dateReception).getTime() - new Date(a.dateReception).getTime())
-    .slice(0, 5);
-
-  // Stocks faibles / rupture
-  const alertStock = stock
-    .filter(s => s.status !== "en_stock")
-    .sort((a, b) => a.quantite - b.quantite)
-    .slice(0, 6);
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="page-title">Tableau de bord</h1>
-        <p className="page-subtitle">Vue d'ensemble de votre boutique informatique</p>
-      </div>
-
-      {/* KPI Cards - Row 1 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Ventes du jour"
-          value={formatPrice(stats.ventesJourMontant)}
-          subtitle={`${stats.ventesJour} transaction(s)`}
-          icon={Receipt}
-          color="blue"
-          trend={{ value: 12, label: "vs hier" }}
-        />
-        <StatCard
-          title="Ventes du mois"
-          value={formatPrice(stats.ventesMoisMontant)}
-          subtitle={`${stats.ventesMois} vente(s)`}
-          icon={TrendingUp}
-          color="green"
-        />
-        <StatCard
-          title="Réparations actives"
-          value={stats.reparationsActives}
-          subtitle={`${stats.reparationsEnAttente} en attente pièce`}
-          icon={Wrench}
-          color="purple"
-        />
-        <StatCard
-          title="Commandes en cours"
-          value={stats.commandesEnCours}
-          subtitle="Fournisseurs"
-          icon={ShoppingCart}
-          color="cyan"
-        />
-      </div>
-
-      {/* KPI Cards - Row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Articles en stock"
-          value={stats.stockTotal}
-          subtitle={`Valeur: ${formatPrice(stats.stockValeur)}`}
-          icon={Package}
-          color="blue"
-        />
-        <StatCard
-          title="Stock faible"
-          value={stats.stockFaible}
-          subtitle="Sous le seuil d'alerte"
-          icon={AlertTriangle}
-          color="yellow"
-        />
-        <StatCard
-          title="Rupture de stock"
-          value={stats.enRupture}
-          subtitle="Articles épuisés"
-          icon={AlertCircle}
-          color="red"
-        />
-        <StatCard
-          title="Clients"
-          value={stats.clientsTotal}
-          subtitle="Clients enregistrés"
-          icon={Users}
-          color="green"
-        />
-      </div>
-
-      {/* Charts + Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Stock par catégorie */}
-        <div className="table-container p-5">
-          <h3 className="font-semibold text-sm mb-4">Stock par catégorie</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={categoryData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Qté" />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2.5 text-foreground">
+            <span className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Wrench className="w-6 h-6" />
+            </span>
+            Tableau de Bord Atelier & Boutique
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gestion du flux technique : appareils à réparer, appareils prêts et pièces de rechange
+          </p>
         </div>
 
-        {/* Alertes stock */}
-        <div className="table-container p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-sm">Alertes de stock</h3>
-            <a href="/stock" className="text-xs text-primary hover:underline">Voir tout →</a>
-          </div>
-          {alertStock.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">✅ Aucune alerte de stock</p>
-          ) : (
-            <div className="space-y-2">
-              {alertStock.map(item => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.nom}</p>
-                    <p className="text-xs text-muted-foreground">{item.marque} · {item.categorie}</p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    <span className="text-sm font-bold">
-                      {item.quantite}
-                    </span>
-                    <span
-                      className={cn(
-                        "badge-status text-xs",
-                        item.status === "rupture" ? "status-rupture" : "status-stock_faible"
-                      )}
-                    >
-                      {item.status === "rupture" ? "Rupture" : "Faible"}
-                    </span>
-                  </div>
-                </div>
-              ))}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => navigate("/reparations")}
+            className="gap-2 shadow-sm font-semibold"
+          >
+            <PlusCircle className="w-4 h-4" /> Nouveau Ticket SAV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={refreshData}
+            size="icon"
+            className="h-10 w-10 text-muted-foreground"
+            title="Rafraîchir"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Primary Operational KPIs - ZERO CURRENCY */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* À réparer (Total) */}
+        <div className="bg-card border-2 border-blue-200 dark:border-blue-900/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                À Réparer en Atelier
+              </p>
+              <p className="text-3xl font-extrabold text-foreground mt-1.5">{stats.totalAReparer}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.enCoursReparation} en cours · {stats.enAttenteDiagnostic} diagnostic
+              </p>
             </div>
-          )}
+            <div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+              <Wrench className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Charge de travail atelier</span>
+            <span className="font-semibold text-blue-600">Actif</span>
+          </div>
+        </div>
+
+        {/* Bloqué: Attente de pièce */}
+        <div className="bg-card border-2 border-orange-200 dark:border-orange-900/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                En Attente de Pièce
+              </p>
+              <p className="text-3xl font-extrabold text-foreground mt-1.5">{stats.enAttentePiece}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Bloqués pour composant
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 flex items-center justify-center">
+              <Hourglass className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Pièces à commander</span>
+            <Link to="/commandes" className="font-semibold text-orange-600 hover:underline">
+              Commander →
+            </Link>
+          </div>
+        </div>
+
+        {/* Choses Réparées: Prêts pour retrait */}
+        <div className="bg-card border-2 border-green-200 dark:border-green-900/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">
+                Réparés · Prêts au Retrait
+              </p>
+              <p className="text-3xl font-extrabold text-foreground mt-1.5">{stats.reparesPrets}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Clients à avertir / restituer
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-green-100 dark:bg-green-950/60 text-green-600 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Total clôturés : {stats.livresClotures}</span>
+            <span className="font-semibold text-green-600">Prêt</span>
+          </div>
+        </div>
+
+        {/* Pièces critiques / Ruptures atelier */}
+        <div className="bg-card border-2 border-red-200 dark:border-red-900/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">
+                Pièces en Alerte / Rupture
+              </p>
+              <p className="text-3xl font-extrabold text-foreground mt-1.5">{stats.piecesRupture + stats.piecesFaibles}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.piecesRupture} épuisés · {stats.piecesFaibles} niveau bas
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">Composants requis</span>
+            <Link to="/stock" className="font-semibold text-red-600 hover:underline">
+              Vérifier Stock →
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Recent Repairs */}
-      <div className="table-container p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm">Réparations récentes (SAV)</h3>
-          <a href="/reparations" className="text-xs text-primary hover:underline">Voir tout →</a>
+      {/* Main Process Workflow (Pipeline de l'Atelier) */}
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-sm flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            Processus Principal de l'Atelier (Flux SAV)
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {stats.totalAReparer} appareil(s) en transit technique
+          </span>
         </div>
-        {recentRepairs.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Aucune réparation en cours</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Ticket</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Client</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Appareil</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Statut</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Priorité</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-muted-foreground">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRepairs.map(r => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-2.5 font-mono text-xs text-primary font-medium">{r.numeroTicket}</td>
-                    <td className="py-2.5">{r.clientNom}</td>
-                    <td className="py-2.5 text-muted-foreground truncate max-w-32">{r.appareil}</td>
-                    <td className="py-2.5">
-                      <span className={cn("badge-status", `status-${r.status}`)}>
-                        {getRepairStatusLabel(r.status)}
-                      </span>
-                    </td>
-                    <td className="py-2.5">
-                      <span className={cn("badge-status", `priority-${r.priorite}`)}>
-                        {r.priorite}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-xs text-muted-foreground">
-                      {formatDateTime(r.dateReception)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+          <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40">
+            <span className="text-blue-600 font-bold block text-lg">{stats.enAttenteDiagnostic}</span>
+            <span className="text-muted-foreground font-medium">1. Diagnostic</span>
           </div>
-        )}
+          <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/40">
+            <span className="text-orange-600 font-bold block text-lg">{stats.enAttentePiece}</span>
+            <span className="text-muted-foreground font-medium">2. Attente Pièce</span>
+          </div>
+          <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-900/40">
+            <span className="text-cyan-600 font-bold block text-lg">{stats.enCoursReparation}</span>
+            <span className="text-muted-foreground font-medium">3. En Réparation</span>
+          </div>
+          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/40">
+            <span className="text-green-600 font-bold block text-lg">{stats.reparesPrets}</span>
+            <span className="text-muted-foreground font-medium">4. Réparé (Prêt)</span>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 border border-border">
+            <span className="text-slate-700 dark:text-slate-300 font-bold block text-lg">{stats.livresClotures}</span>
+            <span className="text-muted-foreground font-medium">5. Livré Client</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: LES CHOSES À RÉPARER vs LES CHOSES RÉPARÉES */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        {/* SECTION 1 : LES CHOSES À RÉPARER (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <Wrench className="w-4 h-4 text-blue-600" />
+                  Pièces & Appareils à Réparer ({pendingRepairs.length})
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Appareils pris en charge nécessitant une intervention technique
+                </p>
+              </div>
+
+              {/* Sub-filters for pending repairs */}
+              <div className="flex flex-wrap gap-1 bg-muted/60 p-1 rounded-lg text-xs">
+                <button
+                  type="button"
+                  onClick={() => setFilterActiveTab("all_pending")}
+                  className={cn(
+                    "px-2.5 py-1 rounded font-medium transition-colors",
+                    filterActiveTab === "all_pending" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Tous ({stats.totalAReparer})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterActiveTab("attente_piece")}
+                  className={cn(
+                    "px-2.5 py-1 rounded font-medium transition-colors",
+                    filterActiveTab === "attente_piece" ? "bg-card text-orange-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Attente Pièce ({stats.enAttentePiece})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterActiveTab("diagnostic")}
+                  className={cn(
+                    "px-2.5 py-1 rounded font-medium transition-colors",
+                    filterActiveTab === "diagnostic" ? "bg-card text-purple-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Diagnostic ({stats.enAttenteDiagnostic})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterActiveTab("urgents")}
+                  className={cn(
+                    "px-2.5 py-1 rounded font-medium transition-colors",
+                    filterActiveTab === "urgents" ? "bg-card text-red-600 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Urgents ({stats.urgents})
+                </button>
+              </div>
+            </div>
+
+            {/* List of items to repair */}
+            {pendingRepairs.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-green-500 opacity-60" />
+                <p className="text-sm font-medium">Aucun appareil en attente pour ce filtre !</p>
+                <p className="text-xs text-muted-foreground mt-1">Tous les appareils sont réparés ou à jour.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
+                {pendingRepairs.map(item => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "p-3.5 rounded-xl border transition-all",
+                      item.priorite === "urgente"
+                        ? "border-red-300 bg-red-50/40 dark:bg-red-950/20 dark:border-red-900/60"
+                        : item.status === "en_attente_pièce"
+                        ? "border-orange-300 bg-orange-50/40 dark:bg-orange-950/20 dark:border-orange-900/60"
+                        : "border-border hover:border-border/80 bg-card"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                          {item.numeroTicket}
+                        </span>
+                        <span className={cn("badge-status text-xs", STATUS_LABELS[item.status].badgeClass)}>
+                          {STATUS_LABELS[item.status].label}
+                        </span>
+                        {item.priorite === "urgente" && (
+                          <span className="badge-status priority-urgente text-xs font-bold">
+                            ⚠️ URGENT
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[11px] text-muted-foreground">
+                        Reçu le {formatDateTime(item.dateReception)}
+                      </span>
+                    </div>
+
+                    {/* Device & Client info */}
+                    <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <div>
+                        <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                          <Laptop className="w-4 h-4 text-muted-foreground" />
+                          {item.appareil}
+                          {item.marque && <span className="text-xs font-normal text-muted-foreground">({item.marque} {item.modele})</span>}
+                        </h4>
+                        <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                          <span className="flex items-center gap-1 font-medium text-foreground">
+                            <User className="w-3 h-3 text-muted-foreground" /> {item.clientNom}
+                          </span>
+                          {item.clientTel && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-muted-foreground" /> {item.clientTel}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      {item.technicien && (
+                        <div className="text-right text-xs text-muted-foreground">
+                          Tech : <span className="font-medium text-foreground">{item.technicien}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Problem description */}
+                    <div className="mt-2.5 p-2 rounded-lg bg-muted/50 text-xs">
+                      <p className="font-semibold text-foreground">Panne signalée :</p>
+                      <p className="text-muted-foreground mt-0.5 line-clamp-2">{item.problemeDecrit}</p>
+                      {item.diagnostic && (
+                        <p className="text-blue-700 dark:text-blue-400 mt-1 font-medium">
+                          🔍 Diagnostic : {item.diagnostic}
+                        </p>
+                      )}
+                      {item.piecesNecessaires && item.piecesNecessaires.length > 0 && (
+                        <p className="text-orange-700 dark:text-orange-400 mt-1 font-medium flex items-center gap-1">
+                          ⏳ Pièce(s) requise(s) : {item.piecesNecessaires.join(", ")}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action buttons right on dashboard */}
+                    <div className="mt-3 pt-2.5 border-t border-border/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">Action rapide :</span>
+                        {item.status === "reçu" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5 text-purple-600 border-purple-200"
+                            onClick={() => handleQuickStatusChange(item.id, "en_diagnostic")}
+                          >
+                            Diagnostiquer →
+                          </Button>
+                        )}
+                        {(item.status === "en_diagnostic" || item.status === "en_attente_pièce") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5 text-cyan-600 border-cyan-200"
+                            onClick={() => handleQuickStatusChange(item.id, "en_cours")}
+                          >
+                            Lancer réparation →
+                          </Button>
+                        )}
+                        {item.status === "en_cours" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5 text-green-600 border-green-300 font-bold hover:bg-green-50"
+                            onClick={() => handleQuickStatusChange(item.id, "terminé")}
+                          >
+                            ✓ Marquer Réparé
+                          </Button>
+                        )}
+                      </div>
+
+                      <Link
+                        to="/reparations"
+                        className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+                      >
+                        Détails ticket <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* SECTION 2 : LES CHOSES RÉPARÉES & COMPOSANTS CRITIQUES (5 cols) */}
+        <div className="lg:col-span-5 space-y-4">
+
+          {/* CHOSES RÉPARÉES (Prêts à être récupérés / Livrés) */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  Appareils Réparés ({stats.reparesPrets} prêts)
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Terminés avec succès, prêts pour retrait ou récemment livrés
+                </p>
+              </div>
+              <Link to="/reparations" className="text-xs text-primary hover:underline">
+                Voir tout →
+              </Link>
+            </div>
+
+            {completedRepairs.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground text-xs border border-dashed rounded-lg">
+                Aucun appareil réparé récemment
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                {completedRepairs.map(item => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "p-3 rounded-lg border text-xs flex items-center justify-between gap-2",
+                      item.status === "terminé"
+                        ? "bg-green-50/60 dark:bg-green-950/20 border-green-200 dark:border-green-900/60"
+                        : "bg-muted/30 border-border"
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="font-mono font-bold text-primary">{item.numeroTicket}</span>
+                        <span className={cn("badge-status text-[10px]", STATUS_LABELS[item.status].badgeClass)}>
+                          {item.status === "terminé" ? "Prêt au retrait" : "Livré"}
+                        </span>
+                      </div>
+                      <p className="font-bold text-foreground truncate">{item.appareil}</p>
+                      <p className="text-muted-foreground text-[11px] flex items-center gap-1 mt-0.5">
+                        <User className="w-3 h-3" /> {item.clientNom}
+                        {item.clientTel && ` · ${item.clientTel}`}
+                      </p>
+                    </div>
+
+                    <div>
+                      {item.status === "terminé" ? (
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs px-2.5 gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                          onClick={() => handleQuickStatusChange(item.id, "livré")}
+                        >
+                          <Check className="w-3 h-3" /> Remettre au client
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground italic">
+                          Clôturé
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* COMPOSANTS & PIÈCES DE RECHANGE (Stock critique pour l'atelier) */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-bold text-sm flex items-center gap-2 text-foreground">
+                  <Cpu className="w-4 h-4 text-orange-600" />
+                  Pièces & Composants Critiques
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Pièces nécessaires pour les réparations PC & laptops
+                </p>
+              </div>
+              <Link to="/commandes" className="text-xs text-primary hover:underline">
+                Commander →
+              </Link>
+            </div>
+
+            {criticalParts.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                ✅ Toutes les pièces de réparation sont disponibles en stock suffisant
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {criticalParts.map(part => (
+                  <div
+                    key={part.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/50 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-foreground truncate">{part.nom}</p>
+                      <p className="text-muted-foreground text-[11px]">{part.categorie} · {part.marque}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-2">
+                      <div className="text-right">
+                        <span className={cn(
+                          "font-bold text-sm block",
+                          part.quantite === 0 ? "text-red-600" : "text-yellow-600"
+                        )}>
+                          {part.quantite} dispo
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">seuil: {part.seuilAlerte}</span>
+                      </div>
+                      <span className={cn(
+                        "badge-status text-[10px]",
+                        part.status === "rupture" ? "status-rupture" : "status-stock_faible"
+                      )}>
+                        {part.status === "rupture" ? "Épuisé" : "Bas"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>Commandes fournisseurs en cours : <strong>{stats.commandesEnTransit}</strong></span>
+              <Link to="/commandes" className="text-primary hover:underline">
+                Gérer réapprovisionnement →
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick links to shop modules */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <Button
+              variant="outline"
+              className="h-9 justify-start gap-2"
+              onClick={() => navigate("/reparations")}
+            >
+              <Wrench className="w-3.5 h-3.5 text-blue-600" />
+              Tous les Tickets SAV
+            </Button>
+            <Button
+              variant="outline"
+              className="h-9 justify-start gap-2"
+              onClick={() => navigate("/commandes")}
+            >
+              <ShoppingCart className="w-3.5 h-3.5 text-orange-600" />
+              Pièces à Commander
+            </Button>
+          </div>
+
+        </div>
       </div>
     </div>
   );
 }
-
