@@ -106,13 +106,31 @@ Sur chaque carte d'appareil à réparer, des boutons d'action rapide permettent 
 
 ---
 
-## 5. Module SAV & Réparations
+## 5. Module SAV & Réparations & Double Impression de Tickets
 
-Accessible depuis le menu latéral **« SAV / Réparations »** :
-- **Filtres par statut** : Reçu, En diagnostic, En attente pièce, En réparation, Réparé, Livré.
-- **Priorisation visuelle** : Badges couleur pour les urgences.
-- **Association des pièces du stock** : Spécification des pièces détachées prélevées dans l'inventaire pour la réparation.
-- **Tarification** : Suivi du coût estimé et du coût final convenu avec le client.
+Accessible depuis le menu supérieur **« SAV / Réparations »** ou directement depuis la saisie rapide du Tableau de Bord :
+
+### 5.1 Impression Simultanée de Deux (2) Tickets
+Pour chaque prise en charge d'appareil en panne, l'application génère et imprime **simultanément 2 tickets distincts** adaptés à l'atelier :
+1. **Ticket 1 — Récépissé Client (Reçu de dépôt)** :
+   - Coordonnées complètes de la boutique avec numéro de téléphone pour appeler l'atelier.
+   - N° de Ticket SAV horodaté (#SAV-2026-XXXX).
+   - Coordonnées du client, désignation de l'appareil et description de la panne.
+   - **Volet Financier** : Coût estimé, **Avance versée** et **Reste à payer** (ou mention *« Payé en totalité »*).
+   - Consignes de retrait et signature client.
+2. **Ticket 2 — Étiquette Atelier & Pièce (À coller sur l'appareil)** :
+   - Format étiquette avec repère de découpe, à fixer au dos du smartphone ou sur le châssis du PC.
+   - N° de Ticket en gros caractères et priorité.
+   - Nom et téléphone du client.
+   - **Zone Sécurité & Déverrouillage** :
+     - **Code PIN ou Mot de passe** bien lisible.
+     - **Schéma de déverrouillage Android** : Grille 3x3 avec numérotation des points et tracé visuel exact du schéma (ex: `1-2-5-8`).
+   - Travaux à effectuer et technicien en charge.
+
+### 5.2 Gestion des Avances & Paiements Intégraux
+- **Avance reçue** : Possibilité de saisir un acompte lors du dépôt de l'appareil.
+- **Bouton « Tout payer »** : Ajuste instantanément l'avance au montant total et passe le ticket en statut *« Soldé en totalité »*.
+- **Calcul automatique du reste dû** : Affiché en temps réel sur la fiche de l'appareil et sur les tickets.
 
 ---
 
@@ -154,17 +172,29 @@ Ce module répond aux besoins de trésorerie quotidienne d'une boutique d'élect
 
 ---
 
-## 9. Module Revendeurs, Grossistes & Fournisseurs
+## 9. Module Revendeurs, Grossistes & Partenaires Personnels
 
 Accessible depuis **« Revendeurs & Fournisseurs »** :
-- **Gestion des Revendeurs & Grossistes** :
-  - Taux de remise accordé (ex: 10%, 15%)
-  - Plafond de crédit autorisé (en DZD)
-  - Solde en cours dû par le revendeur
-  - Coordonnées, ville et historique des achats
-- **Gestion des Fournisseurs** :
-  - Délais de livraison moyens
-  - Conditions commerciales et coordonnées des commerciaux
+
+### 9.1 Partenaire Personnel (Technicien Tiers / Compte Courant)
+Ce type de profil répond aux techniciens et partenaires réguliers qui travaillent en collaboration avec votre boutique :
+- **Ils effectuent des prestations chez vous** (réparations de cartes mères, microsoudure, déblocages) ➜ Vous leur devez de l'argent (Crédit en leur faveur).
+- **Ils achètent des pièces ou des téléphones chez vous** ➜ Ils vous doivent de l'argent (Débit en votre faveur).
+- **Suivi du Compte Courant en Direct** :
+  - `Solde > 0` : Le partenaire vous doit de l'argent (+X.XXX DT).
+  - `Solde < 0` : Vous devez de l'argent au partenaire (-X.XXX DT).
+  - `Solde = 0` : Comptes soldés et équilibrés.
+- **Opérations disponibles sur le compte** :
+  1. *Achat marchandise* (Il achète chez nous) ➜ augmente sa dette.
+  2. *Prestation SAV fournie* (Il travaille pour nous) ➜ augmente notre dette envers lui.
+  3. *Paiement versé* (Nous le payons) ➜ règle ce qu'on lui doit.
+  4. *Avance / Règlement reçu* (Il nous paye) ➜ réduit sa dette.
+  5. *Bouton « Tout Régler »* : Clôture et règle l'intégralité du solde en 1 clic.
+
+### 9.2 Revendeurs Classiques, Grossistes & Fournisseurs
+- Taux de remise accordé (ex: 10%, 15%).
+- Plafond de crédit autorisé (en **DT**).
+- Délais de livraison des fournisseurs et fiches de contact.
 
 ---
 
@@ -179,22 +209,33 @@ Accessible depuis **« Rappels & Appels »** et directement via la cloche de not
 
 ---
 
-## 11. Stockage Lisible en Format Excel (.xlsx) & Réplication Automatique
+## 11. Base de Données, Stockage Excel (.xlsx) & Réplication Automatique
 
-L'application intègre un système de persistance ultra-lisible conçu pour que vous puissiez à tout moment ouvrir et consulter vos données dans **Microsoft Excel**, **Google Sheets** ou **LibreOffice** :
+### 11.1 Avec quelle Base de Données travaille l'application ?
+L'application s'appuie sur une **architecture hybride ultra-robuste et décentralisée** spécialement pensée pour la sécurité et la continuité d'un commerce indépendant :
+1. **Moteur en Mémoire Haute Vitesse (`localStorage`)** :
+   - Assure un temps de réponse instantané (0 latence), même en cas de coupure internet ou réseau.
+   - Les formulaires, recherches, encaissements et filtres répondent immédiatement.
+2. **Synchronisation Miroir Fichier JSON (`boutique_data.json`)** :
+   - À chaque modification, les données sont persistées sur le disque dur via l'API Electron.
+   - Ce fichier JSON standard assure l'intégrité relationnelle de tous les modules (Stock, SAV, Comptes, Ventes, Rappels).
+3. **Miroir Tableur Excel Natif (`boutique_data.xlsx`)** :
+   - Généré automatiquement à chaque opération.
+   - Vous disposez toujours d'un fichier Excel lisible et exploitable en dehors du logiciel sur n'importe quel ordinateur ou smartphone.
+4. **Système de Réplication & Backups Tournants** :
+   - Un dossier `backups/` conserve les 7 dernières sauvegardes automatiques horodatées.
+   - Aucun risque de perte de données en cas de panne matérielle ou coupure électrique.
 
-### 11.1 Génération Automatique du Fichier Excel
-À chaque modification dans l'application (ajout d'un article, nouveau ticket SAV, encaissement, dépense), deux fichiers sont synchronisés en temps réel sur le disque :
-1. **`boutique_data.json`** : Utilisé par le moteur de l'application pour un chargement instantané.
-2. **`boutique_data.xlsx` (Classeur Excel multi-feuilles)** : Un vrai fichier Excel directement double-cliquable, organisé avec 8 feuilles de calcul claires et professionnelles :
-   - 📑 **Inventaire & Stock** (Référence, Nom, Catégorie, Quantité, Seuil, Prix Achat, Prix Vente, Marge, Valeur totale)
-   - 📑 **SAV & Réparations** (N° Ticket, Date, Nom Client, Téléphone, Appareil, Panne, Diagnostic, Technicien, Statut, Coût)
-   - 📑 **Finances & Caisse** (N° Transaction, Date, Type, Catégorie, Montant en DZD, Description, Mode de paiement)
-   - 📑 **Ventes Comptoir** (N° Vente, Date, Client, Articles, Total encaissé, Mode de règlement)
-   - 📑 **Revendeurs & Grossistes** (Nom, Société, Téléphone, Remise %, Plafond de crédit, Solde dû)
-   - 📑 **Clients** (Code, Nom, Prénom, Téléphone, Email, Ville, Total achats)
-   - 📑 **Fournisseurs** (Nom, Contact, Téléphone, Ville, Délai moyen de livraison)
-   - 📑 **Rappels Téléphoniques** (Client, Téléphone, Date/Heure appel, Action demandée, Statut)
+### 11.2 Organisation des 8 Feuilles du Classeur Excel (.xlsx)
+Le fichier `boutique_data.xlsx` est directement double-cliquable dans **Microsoft Excel** ou **Google Sheets** :
+- 📑 **Inventaire & Stock** (Référence, Nom, Catégorie, Quantité, Seuil, Prix Achat, Prix Vente en DT, Marge, Valeur totale)
+- 📑 **SAV & Réparations** (N° Ticket, Date, Nom Client, Téléphone, Appareil, Panne, Diagnostic, Technicien, Statut, Coût en DT, **Avance Versée**, **Reste à Payer**, **Code PIN**, **Schéma Unlock**)
+- 📑 **Finances & Caisse** (N° Transaction, Date, Type, Catégorie, Montant en DT, Description, Mode de paiement)
+- 📑 **Ventes Comptoir** (N° Vente, Date, Client, Articles, Total encaissé, Mode de règlement)
+- 📑 **Revendeurs & Partenaires** (Nom, Société, Téléphone, Type, Remise %, Plafond de crédit, **Solde Dû Actuel en DT**)
+- 📑 **Clients** (Code, Nom, Prénom, Téléphone, Email, Ville, Total achats en DT)
+- 📑 **Fournisseurs** (Nom, Contact, Téléphone, Ville, Délai moyen de livraison)
+- 📑 **Rappels Téléphoniques** (Client, Téléphone, Date/Heure appel, Action demandée, Statut)
 
 ### 11.2 Accès & Ouverture en 1 Clic
 Dans l'onglet **« Paramètres »** :
