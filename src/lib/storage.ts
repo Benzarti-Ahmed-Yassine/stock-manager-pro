@@ -1,5 +1,6 @@
 import type {
-  StockItem, RepairItem, Order, Sale, Client, Supplier
+  StockItem, RepairItem, Order, Sale, Client, Supplier,
+  Transaction, Reminder, Reseller, AppSettings, TransactionCategory, TransactionType
 } from "@/types";
 import {
   generateId, generateRef, generateTicket, generateOrderNumber,
@@ -16,6 +17,10 @@ const KEYS = {
   sales: "techshop_sales",
   clients: "techshop_clients",
   suppliers: "techshop_suppliers",
+  resellers: "techshop_resellers",
+  transactions: "techshop_transactions",
+  reminders: "techshop_reminders",
+  settings: "techshop_settings",
   counters: "techshop_counters",
 };
 
@@ -29,13 +34,16 @@ interface Counters {
   sales: number;
   clients: number;
   suppliers: number;
+  resellers: number;
+  transactions: number;
+  reminders: number;
 }
 
 function getCounters(): Counters {
   const raw = localStorage.getItem(KEYS.counters);
   return raw
     ? JSON.parse(raw)
-    : { stock: 0, repairs: 0, orders: 0, sales: 0, clients: 0, suppliers: 0 };
+    : { stock: 0, repairs: 0, orders: 0, sales: 0, clients: 0, suppliers: 0, resellers: 0, transactions: 0, reminders: 0 };
 }
 
 function saveCounters(c: Counters) {
@@ -50,8 +58,24 @@ function nextCounter(key: keyof Counters): number {
 }
 
 // ============================================================
-// GENERIC HELPERS
+// GENERIC HELPERS & FILE SYNC
 // ============================================================
+let syncTimeout: any = null;
+
+export function triggerFilePersistence() {
+  if (typeof window !== "undefined" && window.electronAPI?.saveFileData) {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      try {
+        const fullData = JSON.parse(exportAllData());
+        window.electronAPI!.saveFileData!(fullData);
+      } catch (err) {
+        console.error("Erreur sync fichier:", err);
+      }
+    }, 500);
+  }
+}
+
 function getAll<T>(key: string): T[] {
   const raw = localStorage.getItem(key);
   return raw ? JSON.parse(raw) : [];
@@ -59,6 +83,7 @@ function getAll<T>(key: string): T[] {
 
 function saveAll<T>(key: string, items: T[]) {
   localStorage.setItem(key, JSON.stringify(items));
+  triggerFilePersistence();
 }
 
 // ============================================================
@@ -319,6 +344,220 @@ export const supplierStorage = {
 };
 
 // ============================================================
+// REVENDEURS
+// ============================================================
+export const resellerStorage = {
+  getAll: (): Reseller[] => getAll<Reseller>(KEYS.resellers),
+
+  add: (data: Omit<Reseller, "id" | "code" | "dateCreation" | "totalAchats">): Reseller => {
+    const items = resellerStorage.getAll();
+    const n = nextCounter("resellers");
+    const item: Reseller = {
+      ...data,
+      id: generateId(),
+      code: generateRef("REV", n),
+      dateCreation: now(),
+      totalAchats: 0,
+    };
+    items.push(item);
+    saveAll(KEYS.resellers, items);
+    return item;
+  },
+
+  update: (id: string, data: Partial<Reseller>): Reseller | null => {
+    const items = resellerStorage.getAll();
+    const idx = items.findIndex((i) => i.id === id);
+    if (idx === -1) return null;
+    items[idx] = { ...items[idx], ...data };
+    saveAll(KEYS.resellers, items);
+    return items[idx];
+  },
+
+  delete: (id: string): boolean => {
+    const items = resellerStorage.getAll();
+    const filtered = items.filter((i) => i.id !== id);
+    if (filtered.length === items.length) return false;
+    saveAll(KEYS.resellers, filtered);
+    return true;
+  },
+
+  getById: (id: string): Reseller | undefined =>
+    resellerStorage.getAll().find((r) => r.id === id),
+};
+
+// ============================================================
+// TRANSACTIONS FINANCIÈRES
+// ============================================================
+export const transactionStorage = {
+  getAll: (): Transaction[] => getAll<Transaction>(KEYS.transactions),
+
+  add: (data: Omit<Transaction, "id" | "numeroTransaction" | "date">): Transaction => {
+    const items = transactionStorage.getAll();
+    const n = nextCounter("transactions");
+    const item: Transaction = {
+      ...data,
+      id: generateId(),
+      numeroTransaction: generateRef("TXN", n),
+      date: now(),
+    };
+    items.push(item);
+    saveAll(KEYS.transactions, items);
+    return item;
+  },
+
+  update: (id: string, data: Partial<Transaction>): Transaction | null => {
+    const items = transactionStorage.getAll();
+    const idx = items.findIndex((i) => i.id === id);
+    if (idx === -1) return null;
+    items[idx] = { ...items[idx], ...data };
+    saveAll(KEYS.transactions, items);
+    return items[idx];
+  },
+
+  delete: (id: string): boolean => {
+    const items = transactionStorage.getAll();
+    const filtered = items.filter((i) => i.id !== id);
+    if (filtered.length === items.length) return false;
+    saveAll(KEYS.transactions, filtered);
+    return true;
+  },
+
+  getTotalByType: (type: TransactionType): number =>
+    transactionStorage.getAll()
+      .filter((t) => t.type === type)
+      .reduce((sum, t) => sum + t.montant, 0),
+
+  getBalance: (): number => {
+    const all = transactionStorage.getAll();
+    const revenus = all.filter(t => t.type === "revenu").reduce((s, t) => s + t.montant, 0);
+    const depenses = all.filter(t => t.type === "depense").reduce((s, t) => s + t.montant, 0);
+    return revenus - depenses;
+  },
+
+  getByMonth: (year: number, month: number): Transaction[] =>
+    transactionStorage.getAll().filter(t => {
+      const d = new Date(t.date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    }),
+};
+
+// ============================================================
+// RAPPELS / REMINDERS
+// ============================================================
+export const reminderStorage = {
+  getAll: (): Reminder[] => getAll<Reminder>(KEYS.reminders),
+
+  add: (data: Omit<Reminder, "id" | "dateCreation">): Reminder => {
+    const items = reminderStorage.getAll();
+    const item: Reminder = {
+      ...data,
+      id: generateId(),
+      dateCreation: now(),
+    };
+    items.push(item);
+    saveAll(KEYS.reminders, items);
+    return item;
+  },
+
+  update: (id: string, data: Partial<Reminder>): Reminder | null => {
+    const items = reminderStorage.getAll();
+    const idx = items.findIndex((i) => i.id === id);
+    if (idx === -1) return null;
+    items[idx] = { ...items[idx], ...data };
+    saveAll(KEYS.reminders, items);
+    return items[idx];
+  },
+
+  delete: (id: string): boolean => {
+    const items = reminderStorage.getAll();
+    const filtered = items.filter((i) => i.id !== id);
+    if (filtered.length === items.length) return false;
+    saveAll(KEYS.reminders, filtered);
+    return true;
+  },
+
+  getActifs: (): Reminder[] =>
+    reminderStorage.getAll().filter(r => r.status === "actif"),
+
+  getDue: (): Reminder[] => {
+    const now = new Date();
+    return reminderStorage.getAll().filter(r =>
+      r.status === "actif" && new Date(r.dueDate) <= now
+    );
+  },
+};
+
+// ============================================================
+// SETTINGS / PARAMÈTRES
+// ============================================================
+const DEFAULT_SETTINGS: AppSettings = {
+  boutiqueName: "Boutique Informatique & SAV",
+  currency: "DZD",
+  locale: "fr-DZ",
+  backupCount: 7,
+  remindersEnabled: true,
+};
+
+export const settingsStorage = {
+  get: (): AppSettings => {
+    const raw = localStorage.getItem(KEYS.settings);
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+  },
+  save: (data: Partial<AppSettings>): AppSettings => {
+    const current = settingsStorage.get();
+    const updated = { ...current, ...data };
+    localStorage.setItem(KEYS.settings, JSON.stringify(updated));
+    return updated;
+  },
+  reset: (): AppSettings => {
+    localStorage.setItem(KEYS.settings, JSON.stringify(DEFAULT_SETTINGS));
+    return DEFAULT_SETTINGS;
+  },
+};
+
+// ============================================================
+// EXPORT / IMPORT JSON (Sauvegarde & Restauration)
+// ============================================================
+export function exportAllData(): string {
+  const data = {
+    exportDate: new Date().toISOString(),
+    version: "2.0",
+    stock: stockStorage.getAll(),
+    repairs: repairStorage.getAll(),
+    orders: orderStorage.getAll(),
+    sales: saleStorage.getAll(),
+    clients: clientStorage.getAll(),
+    suppliers: supplierStorage.getAll(),
+    resellers: resellerStorage.getAll(),
+    transactions: transactionStorage.getAll(),
+    reminders: reminderStorage.getAll(),
+    settings: settingsStorage.get(),
+    counters: JSON.parse(localStorage.getItem(KEYS.counters) || "{}"),
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+export function importAllData(jsonString: string): boolean {
+  try {
+    const data = JSON.parse(jsonString);
+    if (data.stock) saveAll(KEYS.stock, data.stock);
+    if (data.repairs) saveAll(KEYS.repairs, data.repairs);
+    if (data.orders) saveAll(KEYS.orders, data.orders);
+    if (data.sales) saveAll(KEYS.sales, data.sales);
+    if (data.clients) saveAll(KEYS.clients, data.clients);
+    if (data.suppliers) saveAll(KEYS.suppliers, data.suppliers);
+    if (data.resellers) saveAll(KEYS.resellers, data.resellers);
+    if (data.transactions) saveAll(KEYS.transactions, data.transactions);
+    if (data.reminders) saveAll(KEYS.reminders, data.reminders);
+    if (data.settings) localStorage.setItem(KEYS.settings, JSON.stringify(data.settings));
+    if (data.counters) localStorage.setItem(KEYS.counters, JSON.stringify(data.counters));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================
 // SEED DATA (données de démonstration)
 // ============================================================
 export function seedDemoData() {
@@ -372,5 +611,26 @@ export function seedDemoData() {
       dateLivraisonPrevue: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     });
   }
+
+  // Revendeurs de démonstration
+  resellerStorage.add({ nom: "Informatique Sahel", telephone: "0555001122", email: "sahel@info.dz", type: "revendeur", entreprise: "SARL Sahel Info", ville: "Annaba", remisePourcentage: 10, plafondCredit: 500000, soldeEnCours: 85000 });
+  resellerStorage.add({ nom: "PC Store Oran", telephone: "0661334455", email: "store@oran.dz", type: "grossiste", entreprise: "PC Store", ville: "Oran", remisePourcentage: 15, plafondCredit: 1000000, soldeEnCours: 0 });
+
+  // Transactions de démonstration
+  const today = new Date();
+  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15).toISOString();
+  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 5).toISOString();
+
+  transactionStorage.add({ type: "revenu", categorie: "Vente produit", montant: 42000, description: "Vente Intel Core i7-12700K", methodePaiement: "espèces", referenceExterne: "VNT-001", date: thisMonth } as any);
+  transactionStorage.add({ type: "revenu", categorie: "Réparation", montant: 8500, description: "Réparation écran Laptop HP EliteBook", methodePaiement: "espèces", referenceExterne: "SAV-001", date: thisMonth } as any);
+  transactionStorage.add({ type: "depense", categorie: "Achat stock", montant: 95000, description: "Achat lot composants - Tech Distrib", methodePaiement: "virement", date: lastMonth } as any);
+  transactionStorage.add({ type: "depense", categorie: "Loyer", montant: 25000, description: "Loyer boutique - Novembre", methodePaiement: "virement", date: thisMonth } as any);
+  transactionStorage.add({ type: "depense", categorie: "Salaire", montant: 40000, description: "Salaire technicien Sofiane", methodePaiement: "espèces", date: thisMonth } as any);
+  transactionStorage.add({ type: "revenu", categorie: "Vente produit", montant: 29000, description: "Vente Écran Samsung 24 FHD", methodePaiement: "carte", date: lastMonth } as any);
+
+  // Rappels de démonstration
+  const demain = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  reminderStorage.add({ clientNom: "Mansouri Yacine", clientTel: "0770112233", message: "Rappeler le client - Laptop HP prêt pour retrait", dueDate: demain, repeat: "aucune", status: "actif" });
+  reminderStorage.add({ clientNom: "Bencheikh Omar", clientTel: "0661445566", message: "Vérifier disponibilité pièce alimentation Corsair RM750x", dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), repeat: "aucune", status: "actif" });
 }
 

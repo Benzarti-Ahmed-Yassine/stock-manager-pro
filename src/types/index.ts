@@ -200,6 +200,104 @@ export interface Supplier {
 }
 
 // ============================================================
+// REVENDEURS
+// ============================================================
+
+export interface Reseller {
+  id: string;
+  code: string;
+  nom: string;
+  prenom?: string;
+  email?: string;
+  telephone: string;
+  adresse?: string;
+  ville?: string;
+  type: "revendeur" | "grossiste" | "partenaire";
+  entreprise?: string;
+  remisePourcentage?: number;   // % de remise accordée
+  plafondCredit?: number;       // Plafond crédit en DZD
+  soldeEnCours?: number;        // Solde actuel dû
+  dateCreation: string;
+  totalAchats: number;
+  notes?: string;
+}
+
+// ============================================================
+// FINANCES / TRANSACTIONS
+// ============================================================
+
+export type TransactionType = "revenu" | "depense";
+
+export type TransactionCategory =
+  | "Achat stock"
+  | "Vente produit"
+  | "Réparation"
+  | "Loyer"
+  | "Salaire"
+  | "Fournitures"
+  | "Transport"
+  | "Publicité"
+  | "Services"
+  | "Remboursement"
+  | "Autre";
+
+export interface Transaction {
+  id: string;
+  numeroTransaction: string;
+  type: TransactionType;
+  categorie: TransactionCategory;
+  montant: number;
+  description: string;
+  date: string;
+  methodePaiement?: "espèces" | "carte" | "virement" | "chèque";
+  referenceExterne?: string;    // N° facture, N° ticket réparation, etc.
+  clientId?: string;
+  fournisseurId?: string;
+  notes?: string;
+  creePar?: string;
+}
+
+// ============================================================
+// RAPPELS / CALL REMINDERS
+// ============================================================
+
+export type ReminderStatus = "actif" | "effectué" | "annulé";
+export type ReminderRepeat = "aucune" | "quotidien" | "hebdomadaire";
+
+export interface Reminder {
+  id: string;
+  clientId?: string;
+  clientNom: string;
+  clientTel: string;
+  repairId?: string;            // Ticket SAV lié (optionnel)
+  message: string;
+  dueDate: string;              // ISO date/time
+  repeat: ReminderRepeat;
+  status: ReminderStatus;
+  dateCreation: string;
+  dateEffectue?: string;
+  notes?: string;
+}
+
+// ============================================================
+// SETTINGS / CONFIGURATION
+// ============================================================
+
+export interface AppSettings {
+  boutiqueName: string;
+  boutiquePhone?: string;
+  boutiqueAddress?: string;
+  dataFilePath?: string;        // chemin custom pour le fichier de données
+  backupFolderPath?: string;    // chemin dossier backup
+  backupCount: number;          // nombre de backups à conserver
+  currency: string;             // "DZD"
+  locale: string;               // "fr-DZ"
+  technicienName?: string;      // nom du technicien par défaut
+  remindersEnabled: boolean;
+  darkMode?: boolean;
+}
+
+// ============================================================
 // DASHBOARD STATS
 // ============================================================
 

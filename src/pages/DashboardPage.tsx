@@ -3,11 +3,18 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, AlertCircle,
   Package, ShoppingCart, ArrowRight, User, Phone, Laptop,
-  Cpu, Check, RefreshCw, PlusCircle, Sparkles, Filter, Hourglass
+  Cpu, Check, RefreshCw, PlusCircle, Sparkles, Filter, Hourglass,
+  ClipboardPlus, X, ChevronDown, ChevronUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { repairStorage, stockStorage, orderStorage } from "@/lib/storage";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { repairStorage, stockStorage, orderStorage, clientStorage } from "@/lib/storage";
 import { formatDateTime, cn } from "@/lib/utils";
 import type { RepairItem, RepairStatus, RepairPriority } from "@/types";
 import { toast } from "sonner";
@@ -30,6 +37,48 @@ export default function DashboardPage() {
 
   // Filter for the "A réparer" section
   const [filterActiveTab, setFilterActiveTab] = useState<"all_pending" | "attente_piece" | "diagnostic" | "urgents">("all_pending");
+
+  // ——— Quick Intake Form ———
+  const [showIntakeForm, setShowIntakeForm] = useState(true);
+  const [intake, setIntake] = useState({
+    clientNom: "",
+    clientTel: "",
+    appareil: "",
+    marque: "",
+    problemeDecrit: "",
+    priorite: "normale" as RepairPriority,
+    technicien: "",
+    operationType: "SAV" as "SAV" | "Achat" | "Dépôt" | "Vente",
+  });
+
+  const handleIntakeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!intake.clientNom.trim()) return toast.error("Nom du client requis");
+    if (!intake.clientTel.trim()) return toast.error("Téléphone requis");
+    if (!intake.appareil.trim()) return toast.error("Appareil requis");
+    if (!intake.problemeDecrit.trim()) return toast.error("Description du problème requise");
+
+    const ticket = repairStorage.add({
+      clientId: "",
+      clientNom: intake.clientNom.trim(),
+      clientTel: intake.clientTel.trim(),
+      appareil: intake.appareil.trim(),
+      marque: intake.marque.trim() || "Non spécifié",
+      modele: "",
+      problemeDecrit: intake.problemeDecrit.trim(),
+      status: "reçu",
+      priorite: intake.priorite,
+      technicien: intake.technicien.trim() || undefined,
+    });
+
+    toast.success(
+      `✅ Ticket créé : ${ticket.numeroTicket}`,
+      { description: `${intake.clientNom} · ${intake.appareil}`, duration: 5000 }
+    );
+
+    setIntake({ clientNom: "", clientTel: "", appareil: "", marque: "", problemeDecrit: "", priorite: "normale", technicien: "", operationType: "SAV" });
+    refreshData();
+  };
 
   const refreshData = () => {
     setRepairs(repairStorage.getAll());
@@ -161,6 +210,152 @@ export default function DashboardPage() {
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
+      </div>
+
+      {/* ——— QUICK INTAKE FORM (SAISIE DIRECTE CLIENT) ——— */}
+      <div className="bg-card border-2 border-primary/30 rounded-xl shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowIntakeForm(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <ClipboardPlus className="w-4 h-4" />
+            </span>
+            <div className="text-left">
+              <p className="font-bold text-sm text-foreground">Saisie Directe Client (Prise en Charge Rapide)</p>
+              <p className="text-xs text-muted-foreground">Enregistrer immédiatement un client, son appareil et l'opération demandée</p>
+            </div>
+          </div>
+          {showIntakeForm ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </button>
+
+        {showIntakeForm && (
+          <div className="border-t border-border/50 px-5 py-4">
+            <form onSubmit={handleIntakeSubmit}>
+              {/* Operation type tabs */}
+              <div className="flex gap-1.5 mb-4 bg-muted/50 p-1 rounded-lg w-fit">
+                {(["SAV", "Achat", "Dépôt", "Vente"] as const).map(op => (
+                  <button
+                    key={op}
+                    type="button"
+                    onClick={() => setIntake(f => ({ ...f, operationType: op }))}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-semibold transition-colors",
+                      intake.operationType === op
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {op === "SAV" ? "🔧 SAV / Réparation" :
+                     op === "Achat" ? "🛒 Achat" :
+                     op === "Dépôt" ? "📦 Dépôt" : "💰 Vente"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">NOM CLIENT *</Label>
+                  <div className="relative">
+                    <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      className="pl-8 h-9 text-sm"
+                      placeholder="Nom & Prénom"
+                      value={intake.clientNom}
+                      onChange={e => setIntake(f => ({ ...f, clientNom: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">TÉLÉPHONE *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      className="pl-8 h-9 text-sm"
+                      placeholder="06XXXXXXXX"
+                      value={intake.clientTel}
+                      onChange={e => setIntake(f => ({ ...f, clientTel: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">APPAREIL / OBJET *</Label>
+                  <div className="relative">
+                    <Laptop className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      className="pl-8 h-9 text-sm"
+                      placeholder="Laptop HP, Téléphone, etc."
+                      value={intake.appareil}
+                      onChange={e => setIntake(f => ({ ...f, appareil: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">MARQUE / MODÈLE</Label>
+                  <Input
+                    className="h-9 text-sm"
+                    placeholder="HP, Samsung, Apple..."
+                    value={intake.marque}
+                    onChange={e => setIntake(f => ({ ...f, marque: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">PROBLÈME / OPÉRATION *</Label>
+                  <Textarea
+                    className="text-sm resize-none"
+                    rows={2}
+                    placeholder="Description du problème ou de l'opération demandée..."
+                    value={intake.problemeDecrit}
+                    onChange={e => setIntake(f => ({ ...f, problemeDecrit: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">PRIORITÉ</Label>
+                  <Select value={intake.priorite} onValueChange={(v: RepairPriority) => setIntake(f => ({ ...f, priorite: v }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basse">🟢 Basse</SelectItem>
+                      <SelectItem value="normale">🔵 Normale</SelectItem>
+                      <SelectItem value="haute">🟠 Haute</SelectItem>
+                      <SelectItem value="urgente">🔴 URGENTE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="mt-2">
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1 block">TECHNICIEN</Label>
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder="Sofiane, Riad..."
+                      value={intake.technicien}
+                      onChange={e => setIntake(f => ({ ...f, technicien: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col justify-end gap-2">
+                  <Button
+                    type="submit"
+                    className="gap-2 h-10 font-semibold w-full"
+                  >
+                    <ClipboardPlus className="w-4 h-4" />
+                    Enregistrer la Prise en Charge
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2 h-9 text-sm w-full"
+                    onClick={() => navigate("/reparations")}
+                  >
+                    Voir tous les tickets →
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Primary Operational KPIs - ZERO CURRENCY */}

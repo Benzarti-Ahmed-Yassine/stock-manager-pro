@@ -11,6 +11,9 @@ import {
   ChevronRight,
   Monitor,
   Settings,
+  Wallet,
+  Bell,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -19,10 +22,12 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/stock", label: "Inventaire / Stock", icon: Package },
   { to: "/reparations", label: "SAV / Réparations", icon: Wrench },
-  { to: "/commandes", label: "Commandes", icon: ShoppingCart },
   { to: "/ventes", label: "Ventes / Caisse", icon: Receipt },
+  { to: "/finances", label: "Finances & Caisse", icon: Wallet },
+  { to: "/commandes", label: "Commandes", icon: ShoppingCart },
   { to: "/clients", label: "Clients", icon: Users },
-  { to: "/fournisseurs", label: "Fournisseurs", icon: Truck },
+  { to: "/revendeurs", label: "Revendeurs & Fournisseurs", icon: Building2 },
+  { to: "/rappels", label: "Rappels & Appels", icon: Bell },
 ];
 
 export default function Sidebar() {
@@ -108,15 +113,23 @@ export default function Sidebar() {
         className="border-t p-2"
         style={{ borderColor: "hsl(var(--sidebar-border))" }}
       >
-        {!collapsed && (
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1 opacity-70"
-            style={{ color: "hsl(var(--sidebar-foreground))" }}
-          >
-            <Settings className="w-4 h-4" />
-            <span className="text-xs">Paramètres</span>
-          </div>
-        )}
+        <NavLink
+          to="/parametres"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-2 px-3 py-2 rounded-lg mb-1 transition-all",
+              isActive
+                ? "bg-sidebar-accent text-white"
+                : "opacity-70 hover:opacity-100",
+              collapsed && "justify-center"
+            )
+          }
+          style={{ color: "hsl(var(--sidebar-foreground))" }}
+          title={collapsed ? "Paramètres" : undefined}
+        >
+          <Settings className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span className="text-xs font-medium">Paramètres</span>}
+        </NavLink>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center p-2 rounded-lg transition-all hover:opacity-100 opacity-50"

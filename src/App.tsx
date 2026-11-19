@@ -9,6 +9,10 @@ import OrdersPage from "@/pages/OrdersPage";
 import SalesPage from "@/pages/SalesPage";
 import ClientsPage from "@/pages/ClientsPage";
 import SuppliersPage from "@/pages/SuppliersPage";
+import FinancePage from "@/pages/FinancePage";
+import ResellerPage from "@/pages/ResellerPage";
+import RemindersPage from "@/pages/RemindersPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +34,10 @@ export default function App() {
             <Route path="/ventes" element={<SalesPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/fournisseurs" element={<SuppliersPage />} />
+            <Route path="/revendeurs" element={<ResellerPage />} />
+            <Route path="/finances" element={<FinancePage />} />
+            <Route path="/rappels" element={<RemindersPage />} />
+            <Route path="/parametres" element={<SettingsPage />} />
           </Routes>
         </Layout>
       </BrowserRouter>

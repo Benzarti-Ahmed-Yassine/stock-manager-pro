@@ -2,15 +2,29 @@ import { Bell, Search, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { reminderStorage } from "@/lib/storage";
 
 interface HeaderProps {
   title?: string;
 }
 
 export default function Header({ title }: HeaderProps) {
+  const navigate = useNavigate();
   const [dark, setDark] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
+  const [dueCount, setDueCount] = useState(0);
+
+  useEffect(() => {
+    const updateCount = () => {
+      const due = reminderStorage.getDue();
+      setDueCount(due.length);
+    };
+    updateCount();
+    const interval = setInterval(updateCount, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (dark) {
@@ -49,9 +63,19 @@ export default function Header({ title }: HeaderProps) {
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9"
+          onClick={() => navigate("/rappels")}
+          title="Rappels & Notifications"
+        >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full"></span>
+          {dueCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
+              {dueCount}
+            </span>
+          )}
         </Button>
 
         {/* Theme toggle */}
