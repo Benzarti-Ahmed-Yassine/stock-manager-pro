@@ -121,7 +121,7 @@ Accessible depuis le menu latéral **« SAV / Réparations »** :
 Accessible depuis **« Inventaire / Stock »** :
 - **Catégories adaptées** : CPU, GPU, RAM, SSD, HDD, Carte mère, Alimentation, Boîtier, Écran, Laptop, Téléphone, Accessoires, etc.
 - **Seuils d'alerte configurables** : Statuts automatiques (*En stock*, *Stock faible*, *Rupture*).
-- **Prix d'achat & Prix de vente** en Dinars Algériens (DZD).
+- **Prix d'achat & Prix de vente** en Dinars Tunisiens (**DT / TND**).
 - **Emplacement atelier / boutique** : Rayons, étagères ou casiers (ex: `Rayon A1`, `Tiroir B2`).
 
 ---
