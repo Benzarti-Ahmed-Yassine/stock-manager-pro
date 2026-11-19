@@ -1,6 +1,7 @@
 import type {
   StockItem, RepairItem, Order, Sale, Client, Supplier,
-  Transaction, Reminder, Reseller, AppSettings, TransactionCategory, TransactionType
+  Transaction, Reminder, Reseller, AppSettings, TransactionCategory, TransactionType,
+  CompteOperation, CompteOperationType
 } from "@/types";
 import {
   generateId, generateRef, generateTicket, generateOrderNumber,
@@ -22,6 +23,7 @@ const KEYS = {
   reminders: "techshop_reminders",
   settings: "techshop_settings",
   counters: "techshop_counters",
+  compteOperations: "techshop_compte_operations",
 };
 
 // ============================================================
@@ -493,6 +495,56 @@ export const reminderStorage = {
 };
 
 // ============================================================
+// COMPTE COURANT (Opérations revendeur personnel)
+// ============================================================
+export const compteOperationStorage = {
+  getAll: (): CompteOperation[] => getAll<CompteOperation>(KEYS.compteOperations),
+
+  getByReseller: (resellerId: string): CompteOperation[] =>
+    compteOperationStorage.getAll().filter(op => op.resellerId === resellerId),
+
+  add: (data: Omit<CompteOperation, "id" | "date">): CompteOperation => {
+    const items = compteOperationStorage.getAll();
+    const op: CompteOperation = {
+      ...data,
+      id: generateId(),
+      date: now(),
+    };
+    items.push(op);
+    saveAll(KEYS.compteOperations, items);
+    // Mettre à jour le solde du revendeur
+    const resellers = resellerStorage.getAll();
+    const idx = resellers.findIndex(r => r.id === data.resellerId);
+    if (idx !== -1) {
+      const allOps = [...items].filter(o => o.resellerId === data.resellerId);
+      const solde = allOps.reduce((acc, o) => acc + o.montant, 0);
+      resellerStorage.update(data.resellerId, { soldeEnCours: solde });
+    }
+    return op;
+  },
+
+  delete: (id: string): boolean => {
+    const items = compteOperationStorage.getAll();
+    const op = items.find(o => o.id === id);
+    const filtered = items.filter(o => o.id !== id);
+    if (filtered.length === items.length) return false;
+    saveAll(KEYS.compteOperations, filtered);
+    // Recalc solde
+    if (op) {
+      const remaining = filtered.filter(o => o.resellerId === op.resellerId);
+      const solde = remaining.reduce((acc, o) => acc + o.montant, 0);
+      resellerStorage.update(op.resellerId, { soldeEnCours: solde });
+    }
+    return true;
+  },
+
+  getSolde: (resellerId: string): number => {
+    const ops = compteOperationStorage.getByReseller(resellerId);
+    return ops.reduce((acc, o) => acc + o.montant, 0);
+  },
+};
+
+// ============================================================
 // SETTINGS / PARAMÈTRES
 // ============================================================
 const DEFAULT_SETTINGS: AppSettings = {
@@ -536,6 +588,7 @@ export function exportAllData(): string {
     resellers: resellerStorage.getAll(),
     transactions: transactionStorage.getAll(),
     reminders: reminderStorage.getAll(),
+    compteOperations: compteOperationStorage.getAll(),
     settings: settingsStorage.get(),
     counters: JSON.parse(localStorage.getItem(KEYS.counters) || "{}"),
   };
@@ -554,6 +607,7 @@ export function importAllData(jsonString: string): boolean {
     if (data.resellers) saveAll(KEYS.resellers, data.resellers);
     if (data.transactions) saveAll(KEYS.transactions, data.transactions);
     if (data.reminders) saveAll(KEYS.reminders, data.reminders);
+    if (data.compteOperations) saveAll(KEYS.compteOperations, data.compteOperations);
     if (data.settings) localStorage.setItem(KEYS.settings, JSON.stringify(data.settings));
     if (data.counters) localStorage.setItem(KEYS.counters, JSON.stringify(data.counters));
     return true;

@@ -83,6 +83,10 @@ export interface RepairItem {
   dateFin?: string;
   coutEstime?: number;
   coutFinal?: number;
+  avancePayee?: number;    // Avance versée à la réception
+  resteAPayer?: number;    // Reste à payer (calculé)
+  pinAppareil?: string;    // Code PIN ou mot de passe de l'appareil
+  schemaUnlock?: string;   // Schéma de déverrouillage (description)
   notes?: string;
   garantie?: boolean;
 }
@@ -152,6 +156,8 @@ export interface Sale {
   sousTotal: number;
   remiseGlobale: number;
   montantTotal: number;
+  montantPaye?: number;        // Montant payé à l'achat (avance ou totalité)
+  resteAPayer?: number;        // Reste à payer si paiement partiel/crédit
   methodePaiement: PaymentMethod;
   dateVente: string;
   vendeur?: string;
@@ -212,13 +218,36 @@ export interface Reseller {
   telephone: string;
   adresse?: string;
   ville?: string;
-  type: "revendeur" | "grossiste" | "partenaire";
+  type: "revendeur" | "grossiste" | "partenaire" | "personnel";
   entreprise?: string;
   remisePourcentage?: number;   // % de remise accordée
   plafondCredit?: number;       // Plafond crédit en DT
-  soldeEnCours?: number;        // Solde actuel dû
+  soldeEnCours?: number;        // Solde actuel dû (positif = il doit de l'argent)
   dateCreation: string;
   totalAchats: number;
+  notes?: string;
+}
+
+// ============================================================
+// COMPTE COURANT (Opérations revendeur personnel)
+// ============================================================
+
+export type CompteOperationType =
+  | "achat"       // il achète des produits chez vous
+  | "service"     // il dépose un appareil en réparation
+  | "paiement"    // il paie (réduit le solde dû)
+  | "avance"      // avance versée
+  | "remboursement"; // vous lui remboursez
+
+export interface CompteOperation {
+  id: string;
+  resellerId: string;
+  type: CompteOperationType;
+  montant: number;         // Positif = débit (il doit), Négatif = crédit (vous devez)
+  description: string;
+  reference?: string;      // N° ticket, N° vente, etc.
+  date: string;
+  creePar?: string;
   notes?: string;
 }
 

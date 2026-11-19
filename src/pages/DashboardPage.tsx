@@ -4,7 +4,7 @@ import {
   Wrench, CheckCircle2, Clock, AlertTriangle, AlertCircle,
   Package, ShoppingCart, ArrowRight, User, Phone, Laptop,
   Cpu, Check, RefreshCw, PlusCircle, Sparkles, Filter, Hourglass,
-  ClipboardPlus, X, ChevronDown, ChevronUp, Bell
+  ClipboardPlus, X, ChevronDown, ChevronUp, Bell, Printer, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +15,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { repairStorage, stockStorage, orderStorage, clientStorage, reminderStorage } from "@/lib/storage";
-import { formatDateTime, cn } from "@/lib/utils";
+import { formatDateTime, formatPrice, cn } from "@/lib/utils";
 import type { RepairItem, RepairStatus, RepairPriority, Reminder } from "@/types";
 import { toast } from "sonner";
+import RepairTicketsModal from "@/components/print/RepairTicketsModal";
 
 const STATUS_LABELS: Record<RepairStatus, { label: string; color: string; badgeClass: string }> = {
   reçu: { label: "Reçu", color: "#3b82f6", badgeClass: "status-reçu" },
@@ -41,6 +42,7 @@ export default function DashboardPage() {
 
   // ——— Quick Intake Form ———
   const [showIntakeForm, setShowIntakeForm] = useState(true);
+  const [printTicket, setPrintTicket] = useState<RepairItem | null>(null);
   const [intake, setIntake] = useState({
     clientNom: "",
     clientTel: "",
@@ -49,15 +51,23 @@ export default function DashboardPage() {
     problemeDecrit: "",
     priorite: "normale" as RepairPriority,
     technicien: "",
+    coutEstime: "",
+    avancePayee: "",
+    pinAppareil: "",
+    schemaUnlock: "",
     operationType: "SAV" as "SAV" | "Achat" | "Dépôt" | "Vente",
   });
 
-  const handleIntakeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleIntakeSubmit = (e?: React.FormEvent, shouldPrint = false) => {
+    if (e) e.preventDefault();
     if (!intake.clientNom.trim()) return toast.error("Nom du client requis");
     if (!intake.clientTel.trim()) return toast.error("Téléphone requis");
     if (!intake.appareil.trim()) return toast.error("Appareil requis");
     if (!intake.problemeDecrit.trim()) return toast.error("Description du problème requise");
+
+    const coutEstimeNum = intake.coutEstime ? Number(intake.coutEstime) : undefined;
+    const avanceNum = intake.avancePayee ? Number(intake.avancePayee) : 0;
+    const resteAPayer = Math.max(0, (coutEstimeNum || 0) - avanceNum);
 
     const ticket = repairStorage.add({
       clientId: "",
@@ -70,15 +80,43 @@ export default function DashboardPage() {
       status: "reçu",
       priorite: intake.priorite,
       technicien: intake.technicien.trim() || undefined,
+      coutEstime: coutEstimeNum,
+      avancePayee: avanceNum,
+      resteAPayer,
+      pinAppareil: intake.pinAppareil.trim() || undefined,
+      schemaUnlock: intake.schemaUnlock.trim() || undefined,
     });
 
     toast.success(
       `✅ Ticket créé : ${ticket.numeroTicket}`,
-      { description: `${intake.clientNom} · ${intake.appareil}`, duration: 5000 }
+      { description: `${intake.clientNom} · ${intake.appareil} (Avance: ${formatPrice(avanceNum)})`, duration: 5000 }
     );
 
-    setIntake({ clientNom: "", clientTel: "", appareil: "", marque: "", problemeDecrit: "", priorite: "normale", technicien: "", operationType: "SAV" });
+    setIntake({
+      clientNom: "",
+      clientTel: "",
+      appareil: "",
+      marque: "",
+      problemeDecrit: "",
+      priorite: "normale",
+      technicien: "",
+      coutEstime: "",
+      avancePayee: "",
+      pinAppareil: "",
+      schemaUnlock: "",
+      operationType: "SAV",
+    });
     refreshData();
+
+    if (shouldPrint) {
+      setPrintTicket(ticket);
+    }
+  };
+
+  const handlePayFullIntake = () => {
+    if (!intake.coutEstime) return toast.info("Veuillez d'abord saisir un coût estimé");
+    setIntake(f => ({ ...f, avancePayee: f.coutEstime }));
+    toast.success("Avance ajustée au montant total !");
   };
 
   const refreshData = () => {
@@ -305,6 +343,71 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Ligne 2 : PIN, Schéma, Coût & Avance */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-blue-50/50 dark:bg-blue-950/20 p-2.5 rounded-lg border border-blue-200/60 dark:border-blue-900/40">
+                <div>
+                  <Label className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-blue-600" /> CODE PIN / MDP
+                  </Label>
+                  <Input
+                    className="h-8 text-xs font-mono bg-white dark:bg-card"
+                    placeholder="ex: 1234, 0000"
+                    value={intake.pinAppareil}
+                    onChange={e => setIntake(f => ({ ...f, pinAppareil: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-1 block">
+                    SCHÉMA (1-9)
+                  </Label>
+                  <Input
+                    className="h-8 text-xs font-mono bg-white dark:bg-card"
+                    placeholder="ex: 1-2-5-8"
+                    value={intake.schemaUnlock}
+                    onChange={e => setIntake(f => ({ ...f, schemaUnlock: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                    COÛT ESTIMÉ (DT)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    className="h-8 text-xs bg-white dark:bg-card"
+                    placeholder="0.000"
+                    value={intake.coutEstime}
+                    onChange={e => setIntake(f => ({ ...f, coutEstime: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                      AVANCE (DT)
+                    </Label>
+                    {intake.coutEstime && Number(intake.coutEstime) > 0 && (
+                      <button
+                        type="button"
+                        onClick={handlePayFullIntake}
+                        className="text-[10px] text-emerald-600 hover:underline font-semibold"
+                      >
+                        ✓ Tout payer
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    className="h-8 text-xs bg-white dark:bg-card"
+                    placeholder="0.000"
+                    value={intake.avancePayee}
+                    onChange={e => setIntake(f => ({ ...f, avancePayee: e.target.value }))}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
                   <Label className="text-xs font-semibold text-muted-foreground mb-1 block">PROBLÈME / OPÉRATION *</Label>
@@ -339,19 +442,20 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-col justify-end gap-2">
                   <Button
+                    type="button"
+                    className="gap-2 h-9 font-semibold w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                    onClick={() => handleIntakeSubmit(undefined, true)}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Enregistrer & Imprimer 2 Tickets
+                  </Button>
+                  <Button
                     type="submit"
-                    className="gap-2 h-10 font-semibold w-full"
+                    variant="default"
+                    className="gap-2 h-9 font-semibold w-full text-xs"
                   >
                     <ClipboardPlus className="w-4 h-4" />
                     Enregistrer la Prise en Charge
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2 h-9 text-sm w-full"
-                    onClick={() => navigate("/reparations")}
-                  >
-                    Voir tous les tickets →
                   </Button>
                 </div>
               </div>
@@ -883,6 +987,13 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {/* Modal d'impression directe des 2 tickets depuis le Dashboard */}
+      <RepairTicketsModal
+        repair={printTicket}
+        open={!!printTicket}
+        onOpenChange={o => { if (!o) setPrintTicket(null); }}
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import {
   Plus, Search, Wrench, Edit2, Trash2, Clock, AlertCircle,
-  CheckCircle2, XCircle, Filter, Phone, User, FileSpreadsheet
+  CheckCircle2, XCircle, Filter, Phone, User, FileSpreadsheet,
+  Printer, Lock, KeyRound, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { repairStorage } from "@/lib/storage";
 import { exportRepairsToExcel } from "@/lib/excel";
-import { formatDateTime, cn } from "@/lib/utils";
+import { formatDateTime, formatPrice, cn } from "@/lib/utils";
 import type { RepairItem, RepairStatus, RepairPriority } from "@/types";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
+import RepairTicketsModal, { PatternDisplay } from "@/components/print/RepairTicketsModal";
 
 const STATUS_OPTIONS: { value: RepairStatus; label: string }[] = [
   { value: "reçu", label: "Reçu" },
@@ -55,6 +57,9 @@ type FormData = {
   technicien: string;
   coutEstime: number;
   coutFinal: number;
+  avancePayee: number;
+  pinAppareil: string;
+  schemaUnlock: string;
   notes: string;
 };
 
@@ -66,10 +71,31 @@ export default function RepairsPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [editItem, setEditItem] = useState<RepairItem | null>(null);
   const [viewItem, setViewItem] = useState<RepairItem | null>(null);
+  const [printItem, setPrintItem] = useState<RepairItem | null>(null);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<FormData>({
-    defaultValues: { status: "reçu", priorite: "normale" }
+    defaultValues: {
+      status: "reçu",
+      priorite: "normale",
+      avancePayee: 0,
+      coutEstime: 0,
+      pinAppareil: "",
+      schemaUnlock: "",
+    }
   });
+
+  const watchCoutEstime = watch("coutEstime") || 0;
+  const watchCoutFinal = watch("coutFinal") || 0;
+  const watchAvance = watch("avancePayee") || 0;
+  const watchSchema = watch("schemaUnlock") || "";
+
+  const totalCout = Number(watchCoutFinal) > 0 ? Number(watchCoutFinal) : Number(watchCoutEstime);
+  const resteCalculated = Math.max(0, totalCout - Number(watchAvance));
+
+  const handlePayFull = () => {
+    setValue("avancePayee", totalCout);
+    toast.success("Avance ajustée au montant total (Soldé)");
+  };
 
   const refresh = () => setItems(repairStorage.getAll());
 
@@ -100,6 +126,9 @@ export default function RepairsPage() {
   const openEdit = (item: RepairItem) => {
     setEditItem(item);
     Object.entries(item).forEach(([k, v]) => setValue(k as any, v));
+    setValue("avancePayee", item.avancePayee || 0);
+    setValue("pinAppareil", item.pinAppareil || "");
+    setValue("schemaUnlock", item.schemaUnlock || "");
     setOpenDialog(true);
   };
 
@@ -110,27 +139,57 @@ export default function RepairsPage() {
     toast.success("Réparation supprimée");
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = (data: FormData, shouldPrint = false) => {
+    const coutFinalNum = data.coutFinal ? Number(data.coutFinal) : undefined;
+    const coutEstimeNum = data.coutEstime ? Number(data.coutEstime) : undefined;
+    const avanceNum = data.avancePayee ? Number(data.avancePayee) : 0;
+    const refCout = (coutFinalNum !== undefined && coutFinalNum > 0) ? coutFinalNum : (coutEstimeNum || 0);
+    const resteAPayer = Math.max(0, refCout - avanceNum);
+
+    let savedItem: RepairItem | null = null;
+
     if (editItem) {
-      repairStorage.update(editItem.id, {
+      savedItem = repairStorage.update(editItem.id, {
         ...data,
-        coutEstime: data.coutEstime ? Number(data.coutEstime) : undefined,
-        coutFinal: data.coutFinal ? Number(data.coutFinal) : undefined,
+        coutEstime: coutEstimeNum,
+        coutFinal: coutFinalNum,
+        avancePayee: avanceNum,
+        resteAPayer,
+        pinAppareil: data.pinAppareil?.trim() || undefined,
+        schemaUnlock: data.schemaUnlock?.trim() || undefined,
       });
       toast.success("Réparation mise à jour");
     } else {
-      repairStorage.add({
+      savedItem = repairStorage.add({
         ...data,
         clientId: "",
-        coutEstime: data.coutEstime ? Number(data.coutEstime) : undefined,
-        coutFinal: data.coutFinal ? Number(data.coutFinal) : undefined,
+        coutEstime: coutEstimeNum,
+        coutFinal: coutFinalNum,
+        avancePayee: avanceNum,
+        resteAPayer,
+        pinAppareil: data.pinAppareil?.trim() || undefined,
+        schemaUnlock: data.schemaUnlock?.trim() || undefined,
       });
-      toast.success("Réparation enregistrée");
+      toast.success("Réparation enregistrée", {
+        description: `Ticket ${savedItem.numeroTicket} créé avec succès.`
+      });
     }
+
     setOpenDialog(false);
     setEditItem(null);
-    reset({ status: "reçu", priorite: "normale" });
+    reset({
+      status: "reçu",
+      priorite: "normale",
+      avancePayee: 0,
+      coutEstime: 0,
+      pinAppareil: "",
+      schemaUnlock: "",
+    });
     refresh();
+
+    if (shouldPrint && savedItem) {
+      setPrintItem(savedItem);
+    }
   };
 
   const quickStatus = (id: string, status: RepairStatus) => {
@@ -297,14 +356,58 @@ export default function RepairsPage() {
                 )}
               </div>
 
+              {/* Sécurité : PIN / Schéma */}
+              {(item.pinAppareil || item.schemaUnlock) && (
+                <div className="flex items-center gap-2 mb-2 p-1.5 bg-blue-50/70 dark:bg-blue-950/30 rounded border border-blue-200 dark:border-blue-800 text-xs">
+                  <Lock className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                  {item.pinAppareil && (
+                    <span>PIN: <strong className="font-mono text-blue-700 dark:text-blue-300">{item.pinAppareil}</strong></span>
+                  )}
+                  {item.schemaUnlock && (
+                    <span className="text-muted-foreground">· Schéma: <strong className="font-mono text-blue-700 dark:text-blue-300">{item.schemaUnlock}</strong></span>
+                  )}
+                </div>
+              )}
+
+              {/* Volet Financier : Avance & Reste */}
+              <div className="flex items-center justify-between text-xs my-2 p-2 bg-muted/40 rounded">
+                <div>
+                  <span className="text-muted-foreground">Total: </span>
+                  <span className="font-bold">{formatPrice(item.coutFinal || item.coutEstime || 0)}</span>
+                </div>
+                <div>
+                  {(item.avancePayee || 0) > 0 ? (
+                    (item.resteAPayer === 0 && (item.coutFinal || item.coutEstime || 0) > 0) ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700">✓ Soldé</span>
+                    ) : (
+                      <span className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold">
+                        Avance: {formatPrice(item.avancePayee || 0)} · Reste: {formatPrice(item.resteAPayer || 0)}
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">Aucune avance</span>
+                  )}
+                </div>
+              </div>
+
               {/* Actions */}
-              <div className="flex items-center justify-end gap-1 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openEdit(item)}>
-                  <Edit2 className="w-3 h-3" /> Modifier
+              <div className="flex items-center justify-between gap-1 pt-2 border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-blue-700 border-blue-300 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-800"
+                  onClick={() => setPrintItem(item)}
+                >
+                  <Printer className="w-3.5 h-3.5" /> 2 Tickets
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => handleDelete(item.id)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => openEdit(item)}>
+                    <Edit2 className="w-3 h-3" /> Modifier
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => handleDelete(item.id)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))
@@ -320,7 +423,7 @@ export default function RepairsPage() {
               {editItem ? "Modifier la réparation" : "Nouvelle réparation"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(data => onSubmit(data, false))} className="space-y-4">
             {/* Client */}
             <div className="bg-muted/30 rounded-lg p-3 space-y-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Informations client</p>
@@ -331,7 +434,7 @@ export default function RepairsPage() {
                 </div>
                 <div>
                   <Label>Téléphone *</Label>
-                  <Input {...register("clientTel", { required: true })} placeholder="06XXXXXXXX" />
+                  <Input {...register("clientTel", { required: true })} placeholder="2X XXX XXX" />
                 </div>
               </div>
             </div>
@@ -341,21 +444,51 @@ export default function RepairsPage() {
               <p className="text-xs font-semibold uppercase text-muted-foreground">Appareil</p>
               <div>
                 <Label>Désignation appareil *</Label>
-                <Input {...register("appareil", { required: true })} placeholder="ex: Laptop HP EliteBook 840" />
+                <Input {...register("appareil", { required: true })} placeholder="ex: Smartphone Samsung A54 / Laptop Dell" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Marque</Label>
-                  <Input {...register("marque")} placeholder="HP, Dell, Apple..." />
+                  <Input {...register("marque")} placeholder="Samsung, Apple, Xiaomi, Dell..." />
                 </div>
                 <div>
                   <Label>Modèle</Label>
-                  <Input {...register("modele")} placeholder="EliteBook 840 G7" />
+                  <Input {...register("modele")} placeholder="A54 5G, iPhone 13, Latitude..." />
                 </div>
               </div>
               <div>
-                <Label>N° de série</Label>
-                <Input {...register("serialNumber")} placeholder="Numéro de série optionnel" />
+                <Label>N° de série / IMEI</Label>
+                <Input {...register("serialNumber")} placeholder="Numéro de série ou IMEI optionnel" />
+              </div>
+            </div>
+
+            {/* Sécurité : PIN & Schéma */}
+            <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-3 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase text-blue-700 dark:text-blue-300">
+                <Lock className="w-4 h-4" /> Sécurité & Déverrouillage (Pour l'étiquette atelier)
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Code PIN ou Mot de passe</Label>
+                    <Input {...register("pinAppareil")} placeholder="ex: 1234, 0000..." className="font-mono" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Schéma de déverrouillage (chiffres 1 à 9)</Label>
+                    <Input
+                      {...register("schemaUnlock")}
+                      placeholder="ex: 1-2-5-8 ou 14789"
+                      className="font-mono"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Grille 3x3 numérotée de 1 à 9 (1=haut gauche, 9=bas droite)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center p-2 bg-background/80 rounded border">
+                  <span className="text-[11px] font-semibold text-muted-foreground mb-1">Aperçu du schéma</span>
+                  <PatternDisplay pattern={watchSchema} size={100} />
+                </div>
               </div>
             </div>
 
@@ -363,7 +496,7 @@ export default function RepairsPage() {
             <div className="space-y-3">
               <div>
                 <Label>Problème décrit par le client *</Label>
-                <Textarea {...register("problemeDecrit", { required: true })} placeholder="Description du problème..." rows={2} />
+                <Textarea {...register("problemeDecrit", { required: true })} placeholder="Écran cassé, ne s'allume plus, connecteur de charge..." rows={2} />
               </div>
               <div>
                 <Label>Diagnostic technique</Label>
@@ -391,38 +524,89 @@ export default function RepairsPage() {
               </div>
             </div>
 
-            {/* Technicien & Coûts */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>Technicien</Label>
-                <Input {...register("technicien")} placeholder="Prénom" />
+            {/* Technicien, Coûts & Avance */}
+            <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Finances & Avance Client</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>Technicien assigné</Label>
+                  <Input {...register("technicien")} placeholder="Nom du technicien" />
+                </div>
+                <div>
+                  <Label>Coût estimé (DT)</Label>
+                  <Input type="number" step="0.001" min="0" {...register("coutEstime")} />
+                </div>
+                <div>
+                  <Label>Coût final (DT)</Label>
+                  <Input type="number" step="0.001" min="0" {...register("coutFinal")} />
+                </div>
               </div>
-              <div>
-                <Label>Coût estimé (DT)</Label>
-                <Input type="number" step="0.001" min="0" {...register("coutEstime")} />
-              </div>
-              <div>
-                <Label>Coût final (DT)</Label>
-                <Input type="number" step="0.001" min="0" {...register("coutFinal")} />
+
+              {/* Ligne d'avance et bouton Payer la totalité */}
+              <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                      Avance versée par le client (DT)
+                    </Label>
+                    {totalCout > 0 && (
+                      <button
+                        type="button"
+                        onClick={handlePayFull}
+                        className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 underline flex items-center gap-0.5"
+                      >
+                        <Check className="w-3 h-3" /> Payer la totalité ({formatPrice(totalCout)})
+                      </button>
+                    )}
+                  </div>
+                  <Input type="number" step="0.001" min="0" {...register("avancePayee")} />
+                </div>
+
+                <div className="bg-card p-2.5 rounded-lg border text-center">
+                  <span className="text-xs text-muted-foreground block">Reste à payer</span>
+                  <span className={cn(
+                    "text-lg font-black font-mono",
+                    resteCalculated === 0 && totalCout > 0 ? "text-emerald-600" : "text-amber-600"
+                  )}>
+                    {resteCalculated === 0 && totalCout > 0 ? "TOTALITÉ PAYÉE" : formatPrice(resteCalculated)}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div>
               <Label>Notes internes</Label>
-              <Textarea {...register("notes")} placeholder="Notes internes..." rows={2} />
+              <Textarea {...register("notes")} placeholder="Notes internes pour l'atelier..." rows={2} />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:justify-between">
               <Button type="button" variant="outline" onClick={() => { setOpenDialog(false); setEditItem(null); reset({ status: "reçu", priorite: "normale" }); }}>
                 Annuler
               </Button>
-              <Button type="submit">
-                {editItem ? "Enregistrer" : "Créer le ticket"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-1.5 text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300"
+                  onClick={handleSubmit(data => onSubmit(data, true))}
+                >
+                  <Printer className="w-4 h-4" /> Enregistrer & Imprimer 2 Tickets
+                </Button>
+                <Button type="submit">
+                  {editItem ? "Enregistrer" : "Créer le ticket"}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL D'IMPRESSION DES 2 TICKETS SIMULTANÉS */}
+      <RepairTicketsModal
+        repair={printItem}
+        open={!!printItem}
+        onOpenChange={open => { if (!open) setPrintItem(null); }}
+      />
     </div>
   );
 }

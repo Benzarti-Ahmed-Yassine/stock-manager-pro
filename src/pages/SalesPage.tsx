@@ -26,6 +26,7 @@ export default function SalesPage() {
   const [cart, setCart] = useState<SaleLine[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("espèces");
   const [globalDiscount, setGlobalDiscount] = useState<number>(0);
+  const [montantVerse, setMontantVerse] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
   // Product selector in POS
@@ -133,6 +134,8 @@ export default function SalesPage() {
     }
 
     const selectedClient = clients.find(c => c.id === selectedClientId);
+    const payeNum = montantVerse !== "" ? Number(montantVerse) : cartTotal;
+    const resteNum = Math.max(0, cartTotal - payeNum);
 
     // Save sale
     const newSale = saleStorage.add({
@@ -142,6 +145,8 @@ export default function SalesPage() {
       sousTotal: cartSubtotal,
       remiseGlobale: globalDiscount + cartLineDiscounts,
       montantTotal: cartTotal,
+      montantPaye: payeNum,
+      resteAPayer: resteNum,
       methodePaiement: paymentMethod,
       vendeur: "Responsable Caisse",
       notes: notes || undefined,
@@ -166,6 +171,7 @@ export default function SalesPage() {
     setCart([]);
     setSelectedClientId("");
     setGlobalDiscount(0);
+    setMontantVerse("");
     setNotes("");
     refreshData();
     setViewSale(newSale);
@@ -392,6 +398,37 @@ export default function SalesPage() {
                   </div>
                 </div>
 
+                {/* Paiement / Avance */}
+                <div className="bg-blue-50/60 dark:bg-blue-950/20 p-2.5 rounded-lg border border-blue-200 dark:border-blue-900/60 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                      Montant Versé / Avance (DT)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setMontantVerse(cartTotal.toString())}
+                      className="text-[11px] text-emerald-600 font-bold hover:underline"
+                    >
+                      ✓ Tout payer ({formatPrice(cartTotal)})
+                    </button>
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    className="h-8 text-xs font-mono bg-white dark:bg-card"
+                    placeholder={`Total : ${formatPrice(cartTotal)}`}
+                    value={montantVerse}
+                    onChange={e => setMontantVerse(e.target.value)}
+                  />
+                  {montantVerse !== "" && Number(montantVerse) < cartTotal && (
+                    <div className="flex justify-between font-bold text-amber-700 dark:text-amber-400 pt-1">
+                      <span>Reste à payer (Crédit) :</span>
+                      <span>{formatPrice(Math.max(0, cartTotal - Number(montantVerse)))}</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Summary calculation */}
                 <div className="bg-muted/40 p-3 rounded-lg space-y-1.5 text-xs">
                   <div className="flex justify-between text-muted-foreground">
@@ -564,6 +601,18 @@ export default function SalesPage() {
                   <span>TOTAL:</span>
                   <span className="text-primary">{formatPrice(viewSale.montantTotal)}</span>
                 </div>
+                {viewSale.montantPaye !== undefined && (
+                  <div className="flex justify-between text-xs text-blue-700 dark:text-blue-300 font-semibold pt-1 border-t border-dashed">
+                    <span>Avance / Montant Versé:</span>
+                    <span>{formatPrice(viewSale.montantPaye)}</span>
+                  </div>
+                )}
+                {viewSale.resteAPayer !== undefined && viewSale.resteAPayer > 0 && (
+                  <div className="flex justify-between text-xs text-amber-700 dark:text-amber-400 font-bold">
+                    <span>Reste à payer (Crédit):</span>
+                    <span>{formatPrice(viewSale.resteAPayer)}</span>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="gap-2 sm:justify-between">

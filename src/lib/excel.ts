@@ -41,6 +41,8 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Marque": r.marque || "",
     "Modèle": r.modele || "",
     "N° Série": r.serialNumber || "",
+    "Code PIN": r.pinAppareil || "",
+    "Schéma Déverrouillage": r.schemaUnlock || "",
     "Panne Signalée": r.problemeDecrit,
     "Diagnostic": r.diagnostic || "",
     "Solution": r.solution || "",
@@ -49,6 +51,8 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Statut": r.status,
     "Coût Estimé (DT)": r.coutEstime || 0,
     "Coût Final (DT)": r.coutFinal || 0,
+    "Avance Versée (DT)": r.avancePayee || 0,
+    "Reste à Payer (DT)": r.resteAPayer || 0,
     "Garantie": r.garantie ? "Oui" : "Non",
   }));
   const wsRepairs = XLSX.utils.json_to_sheet(repairData.length ? repairData : [{ "Information": "Aucune réparation enregistrée" }]);
