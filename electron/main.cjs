@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
@@ -46,25 +46,26 @@ function getBackupDir() {
   return dir;
 }
 
-// Fonction de rotation des sauvegardes
+// Fonction de rotation des sauvegardes (JSON et Excel)
 function rotateBackups(backupDir, maxCount) {
   try {
-    const files = fs.readdirSync(backupDir)
-      .filter(f => f.startsWith('backup_') && f.endsWith('.json'))
-      .map(f => ({
-        name: f,
-        time: fs.statSync(path.join(backupDir, f)).mtimeMs,
-      }))
-      .sort((a, b) => b.time - a.time);
+    ['.json', '.xlsx'].forEach(ext => {
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('backup_') && f.endsWith(ext))
+        .map(f => ({
+          name: f,
+          time: fs.statSync(path.join(backupDir, f)).mtimeMs,
+        }))
+        .sort((a, b) => b.time - a.time);
 
-    // Supprimer les plus anciens si > maxCount
-    if (files.length > maxCount) {
-      files.slice(maxCount).forEach(f => {
-        try {
-          fs.unlinkSync(path.join(backupDir, f.name));
-        } catch (_) {}
-      });
-    }
+      if (files.length > maxCount) {
+        files.slice(maxCount).forEach(f => {
+          try {
+            fs.unlinkSync(path.join(backupDir, f.name));
+          } catch (_) {}
+        });
+      }
+    });
   } catch (err) {
     console.error('Erreur rotation backups:', err);
   }
@@ -98,11 +99,13 @@ function createWindow() {
   }
 }
 
-// IPC Handlers pour la persistance fichier et sauvegardes
+// IPC Handlers pour la persistance fichier, Excel et sauvegardes
 ipcMain.handle('get-storage-info', async () => {
   const cfg = getConfig();
   const filePath = getDataFilePath();
+  const excelPath = filePath.replace(/\.json$/i, '.xlsx');
   const exists = fs.existsSync(filePath);
+  const excelExists = fs.existsSync(excelPath);
   let size = 0;
   let lastModified = null;
   if (exists) {
@@ -112,8 +115,10 @@ ipcMain.handle('get-storage-info', async () => {
   }
   return {
     filePath,
+    excelPath,
     backupDir: getBackupDir(),
     exists,
+    excelExists,
     size,
     lastModified,
     config: cfg,
@@ -133,31 +138,59 @@ ipcMain.handle('load-file-data', async () => {
   }
 });
 
-ipcMain.handle('save-file-data', async (event, data) => {
+ipcMain.handle('save-file-data', async (event, payload) => {
   try {
+    const data = payload && payload.data ? payload.data : payload;
+    const excelBase64 = payload && payload.excelBase64 ? payload.excelBase64 : null;
     const filePath = getDataFilePath();
     const backupDir = getBackupDir();
     const jsonStr = JSON.stringify(data, null, 2);
 
-    // 1. Écrire le fichier principal
+    // 1. Écrire le fichier principal JSON
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, jsonStr, 'utf-8');
 
-    // 2. Créer une copie de réplication / backup
+    // 2. Écrire le fichier principal Excel (.xlsx) pour ouverture directe dans Microsoft Excel
+    const excelPath = filePath.replace(/\.json$/i, '.xlsx');
+    if (excelBase64) {
+      fs.writeFileSync(excelPath, Buffer.from(excelBase64, 'base64'));
+    }
+
+    // 3. Créer une copie de réplication / backup JSON et Excel
     const now = new Date();
     const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const backupFile = path.join(backupDir, `backup_${dateStr}.json`);
     fs.writeFileSync(backupFile, jsonStr, 'utf-8');
 
-    // 3. Rotation des backups (garder les N derniers)
+    if (excelBase64) {
+      const backupExcel = path.join(backupDir, `backup_${dateStr}.xlsx`);
+      fs.writeFileSync(backupExcel, Buffer.from(excelBase64, 'base64'));
+    }
+
+    // 4. Rotation des backups (garder les N derniers)
     const cfg = getConfig();
     rotateBackups(backupDir, cfg.backupCount || 7);
 
-    return { success: true, filePath, backupFile };
+    return { success: true, filePath, excelPath, backupFile };
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle('open-data-folder', async () => {
+  const dir = path.dirname(getDataFilePath());
+  shell.openPath(dir);
+  return true;
+});
+
+ipcMain.handle('open-excel-file', async () => {
+  const excelPath = getDataFilePath().replace(/\.json$/i, '.xlsx');
+  if (fs.existsSync(excelPath)) {
+    shell.openPath(excelPath);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('set-storage-config', async (event, newConfig) => {

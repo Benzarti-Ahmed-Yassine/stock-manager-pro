@@ -58,17 +58,22 @@ function nextCounter(key: keyof Counters): number {
 }
 
 // ============================================================
-// GENERIC HELPERS & FILE SYNC
+// GENERIC HELPERS & FILE SYNC (JSON & EXCEL)
 // ============================================================
 let syncTimeout: any = null;
 
 export function triggerFilePersistence() {
   if (typeof window !== "undefined" && window.electronAPI?.saveFileData) {
     if (syncTimeout) clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(() => {
+    syncTimeout = setTimeout(async () => {
       try {
         const fullData = JSON.parse(exportAllData());
-        window.electronAPI!.saveFileData!(fullData);
+        let excelBase64: string | undefined = undefined;
+        try {
+          const { getExcelBase64 } = await import("./excel");
+          excelBase64 = getExcelBase64();
+        } catch (_) {}
+        window.electronAPI!.saveFileData!({ data: fullData, excelBase64 });
       } catch (err) {
         console.error("Erreur sync fichier:", err);
       }
@@ -558,79 +563,35 @@ export function importAllData(jsonString: string): boolean {
 }
 
 // ============================================================
-// SEED DATA (données de démonstration)
+// PURGE & GESTION DES DONNÉES (PROPRES SANS DÉMO)
 // ============================================================
-export function seedDemoData() {
-  // Ne seeder que si la base est vide
-  const existing = stockStorage.getAll();
-  if (existing.length > 0) return;
+export function clearAllData() {
+  const prefix = "techshop_";
+  Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
+  triggerFilePersistence();
+}
 
-  // Fournisseurs
-  const f1 = supplierStorage.add({ nom: "Tech Distrib", contact: "Ahmed Benali", telephone: "0555123456", email: "contact@techdistrib.dz", ville: "Alger", pays: "Algérie", delaiLivraison: 3 });
-  const f2 = supplierStorage.add({ nom: "PC Parts Algeria", contact: "Karim Meziane", telephone: "0661789012", email: "info@pcparts.dz", ville: "Oran", pays: "Algérie", delaiLivraison: 5 });
+export function purgeDemoDataIfExists() {
+  try {
+    const stock = stockStorage.getAll();
+    const repairs = repairStorage.getAll();
+    const suppliers = supplierStorage.getAll();
+    
+    // Détecte les données de démonstration initiales
+    const isDemoStock = stock.some(s => s.nom.includes("Intel Core i7-12700K") || s.nom.includes("Kingston DDR4") || s.nom.includes("Samsung 980 PRO"));
+    const isDemoRepair = repairs.some(r => r.clientNom === "Mansouri Yacine" || r.clientNom === "Bencheikh Omar");
+    const isDemoSupplier = suppliers.some(f => f.nom === "Tech Distrib" || f.nom === "PC Parts Algeria");
 
-  // Clients
-  const c1 = clientStorage.add({ nom: "Mansouri", prenom: "Yacine", telephone: "0770112233", email: "y.mansouri@email.com", type: "particulier", ville: "Alger" });
-  clientStorage.add({ nom: "SARL DataNet", telephone: "0213556677", email: "admin@datanet.dz", type: "entreprise", entreprise: "SARL DataNet", ville: "Alger" });
-  clientStorage.add({ nom: "Boubekeur", prenom: "Lina", telephone: "0541998877", type: "particulier", ville: "Blida" });
-
-  // Stock
-  stockStorage.add({ nom: "Intel Core i7-12700K", categorie: "CPU", marque: "Intel", modele: "i7-12700K", quantite: 8, seuilAlerte: 3, prixAchat: 32000, prixVente: 42000, fournisseurId: f1.id, emplacement: "Rayon A1" });
-  stockStorage.add({ nom: "AMD Ryzen 5 5600X", categorie: "CPU", marque: "AMD", modele: "Ryzen 5 5600X", quantite: 2, seuilAlerte: 3, prixAchat: 18000, prixVente: 24000, fournisseurId: f1.id, emplacement: "Rayon A1" });
-  stockStorage.add({ nom: "Kingston DDR4 16GB 3200MHz", categorie: "RAM", marque: "Kingston", modele: "KVR32N22D8/16", quantite: 15, seuilAlerte: 5, prixAchat: 7500, prixVente: 10000, fournisseurId: f2.id, emplacement: "Rayon B2" });
-  stockStorage.add({ nom: "Samsung 980 PRO 1TB NVMe", categorie: "SSD", marque: "Samsung", modele: "980 PRO", quantite: 0, seuilAlerte: 2, prixAchat: 14000, prixVente: 18500, fournisseurId: f1.id, emplacement: "Rayon C1" });
-  stockStorage.add({ nom: "RTX 3060 12GB GDDR6", categorie: "GPU", marque: "NVIDIA", modele: "RTX 3060", quantite: 3, seuilAlerte: 2, prixAchat: 65000, prixVente: 82000, fournisseurId: f1.id, emplacement: "Rayon D1" });
-  stockStorage.add({ nom: "ASUS ROG B550-F WiFi", categorie: "Carte mère", marque: "ASUS", modele: "ROG B550-F", quantite: 4, seuilAlerte: 2, prixAchat: 25000, prixVente: 33000, fournisseurId: f2.id, emplacement: "Rayon E1" });
-  stockStorage.add({ nom: "Corsair RM750x 750W 80+ Gold", categorie: "Alimentation", marque: "Corsair", modele: "RM750x", quantite: 6, seuilAlerte: 2, prixAchat: 12000, prixVente: 16000, fournisseurId: f1.id });
-  stockStorage.add({ nom: "Seagate Barracuda 2TB HDD", categorie: "HDD", marque: "Seagate", modele: "Barracuda 2TB", quantite: 1, seuilAlerte: 3, prixAchat: 5500, prixVente: 7500, fournisseurId: f2.id });
-  stockStorage.add({ nom: "Logitech MX Master 3 Souris", categorie: "Souris", marque: "Logitech", modele: "MX Master 3", quantite: 10, seuilAlerte: 3, prixAchat: 5800, prixVente: 7800, fournisseurId: f2.id });
-  stockStorage.add({ nom: "Samsung 24\" FHD IPS Écran", categorie: "Écran", marque: "Samsung", modele: "F24T350FH", quantite: 5, seuilAlerte: 2, prixAchat: 22000, prixVente: 29000, fournisseurId: f1.id });
-
-  // Réparations
-  repairStorage.add({ clientId: c1.id, clientNom: "Mansouri Yacine", clientTel: "0770112233", appareil: "Laptop HP EliteBook 840", marque: "HP", modele: "EliteBook 840 G7", problemeDecrit: "Écran cassé - pas d'affichage", status: "en_diagnostic", priorite: "haute", technicien: "Sofiane" });
-  repairStorage.add({ clientId: "", clientNom: "Bencheikh Omar", clientTel: "0661445566", appareil: "Desktop Gaming Custom", marque: "Custom", modele: "Gaming PC", problemeDecrit: "Ne démarre pas, possible panne alimentation ou carte mère", diagnostic: "Alimentation défectueuse à remplacer", status: "en_attente_pièce", priorite: "normale", technicien: "Sofiane", piecesNecessaires: ["Corsair RM750x"] });
-  repairStorage.add({ clientId: "", clientNom: "SARL DataNet", clientTel: "0213556677", appareil: "Imprimante HP LaserJet", marque: "HP", modele: "LaserJet Pro M404n", problemeDecrit: "Bourrage papier fréquent et impression floue", status: "en_cours", priorite: "basse", technicien: "Riad" });
-  repairStorage.add({ clientId: "", clientNom: "Khelifi Samia", clientTel: "0550334455", appareil: "MacBook Pro 2019", marque: "Apple", modele: "MacBook Pro 15\" 2019", problemeDecrit: "Batterie ne charge plus, autonomie 0%", status: "reçu", priorite: "normale" });
-
-  // Commandes fournisseurs
-  const stockItems = stockStorage.getAll();
-  const ssd = stockItems.find(s => s.nom.includes("Samsung 980"));
-  const ryzen = stockItems.find(s => s.nom.includes("Ryzen"));
-  const seagate = stockItems.find(s => s.nom.includes("Seagate"));
-  if (ssd && ryzen && seagate) {
-    orderStorage.add({
-      fournisseurId: f1.id,
-      fournisseurNom: f1.nom,
-      status: "envoyée",
-      lignes: [
-        { id: generateId(), stockItemId: ssd.id, reference: ssd.reference, designation: ssd.nom, quantiteCommandee: 5, quantiteRecue: 0, prixUnitaire: ssd.prixAchat, total: ssd.prixAchat * 5 },
-        { id: generateId(), stockItemId: ryzen.id, reference: ryzen.reference, designation: ryzen.nom, quantiteCommandee: 3, quantiteRecue: 0, prixUnitaire: ryzen.prixAchat, total: ryzen.prixAchat * 3 },
-        { id: generateId(), stockItemId: seagate.id, reference: seagate.reference, designation: seagate.nom, quantiteCommandee: 4, quantiteRecue: 0, prixUnitaire: seagate.prixAchat, total: seagate.prixAchat * 4 },
-      ],
-      montantTotal: (ssd.prixAchat * 5) + (ryzen.prixAchat * 3) + (seagate.prixAchat * 4),
-      dateLivraisonPrevue: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+    if (isDemoStock || isDemoRepair || isDemoSupplier) {
+      clearAllData();
+    }
+  } catch (err) {
+    console.error("Erreur purge données démo:", err);
   }
+}
 
-  // Revendeurs de démonstration
-  resellerStorage.add({ nom: "Informatique Sahel", telephone: "0555001122", email: "sahel@info.dz", type: "revendeur", entreprise: "SARL Sahel Info", ville: "Annaba", remisePourcentage: 10, plafondCredit: 500000, soldeEnCours: 85000 });
-  resellerStorage.add({ nom: "PC Store Oran", telephone: "0661334455", email: "store@oran.dz", type: "grossiste", entreprise: "PC Store", ville: "Oran", remisePourcentage: 15, plafondCredit: 1000000, soldeEnCours: 0 });
-
-  // Transactions de démonstration
-  const today = new Date();
-  const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15).toISOString();
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 5).toISOString();
-
-  transactionStorage.add({ type: "revenu", categorie: "Vente produit", montant: 42000, description: "Vente Intel Core i7-12700K", methodePaiement: "espèces", referenceExterne: "VNT-001", date: thisMonth } as any);
-  transactionStorage.add({ type: "revenu", categorie: "Réparation", montant: 8500, description: "Réparation écran Laptop HP EliteBook", methodePaiement: "espèces", referenceExterne: "SAV-001", date: thisMonth } as any);
-  transactionStorage.add({ type: "depense", categorie: "Achat stock", montant: 95000, description: "Achat lot composants - Tech Distrib", methodePaiement: "virement", date: lastMonth } as any);
-  transactionStorage.add({ type: "depense", categorie: "Loyer", montant: 25000, description: "Loyer boutique - Novembre", methodePaiement: "virement", date: thisMonth } as any);
-  transactionStorage.add({ type: "depense", categorie: "Salaire", montant: 40000, description: "Salaire technicien Sofiane", methodePaiement: "espèces", date: thisMonth } as any);
-  transactionStorage.add({ type: "revenu", categorie: "Vente produit", montant: 29000, description: "Vente Écran Samsung 24 FHD", methodePaiement: "carte", date: lastMonth } as any);
-
-  // Rappels de démonstration
-  const demain = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  reminderStorage.add({ clientNom: "Mansouri Yacine", clientTel: "0770112233", message: "Rappeler le client - Laptop HP prêt pour retrait", dueDate: demain, repeat: "aucune", status: "actif" });
-  reminderStorage.add({ clientNom: "Bencheikh Omar", clientTel: "0661445566", message: "Vérifier disponibilité pièce alimentation Corsair RM750x", dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), repeat: "aucune", status: "actif" });
+export function seedDemoData() {
+  // Purge systématique des anciennes données de démonstration pour démarrer sur une base 100% propre
+  purgeDemoDataIfExists();
 }
 

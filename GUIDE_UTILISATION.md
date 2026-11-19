@@ -179,13 +179,35 @@ Accessible depuis **« Rappels & Appels »** et directement via la cloche de not
 
 ---
 
-## 11. Persistance des Données & Réplication Automatique
+## 11. Stockage Lisible en Format Excel (.xlsx) & Réplication Automatique
 
-L'application intègre un double système de persistance :
-1. **Fichier Centralisé JSON** : Toutes les données (stock, tickets SAV, clients, finances, rappels) sont enregistrées dans un fichier JSON sur le disque (`boutique_data.json`).
-2. **Réplication Tournante (Backups automatiques)** : À chaque modification, une réplication horodatée est générée dans le sous-dossier `backups/` (ex: `backup_2026-11-19_10-30.json`).
-3. **Rotation automatique** : L'application conserve les 7 dernières sauvegardes (paramétrable dans les réglages) et supprime les versions obsolètes pour ne pas saturer le disque.
-4. **Bouton Export/Import manuel** : Possibilité d'exporter l'intégralité de la base de données en 1 clic pour sauvegarde sur clé USB ou disque externe.
+L'application intègre un système de persistance ultra-lisible conçu pour que vous puissiez à tout moment ouvrir et consulter vos données dans **Microsoft Excel**, **Google Sheets** ou **LibreOffice** :
+
+### 11.1 Génération Automatique du Fichier Excel
+À chaque modification dans l'application (ajout d'un article, nouveau ticket SAV, encaissement, dépense), deux fichiers sont synchronisés en temps réel sur le disque :
+1. **`boutique_data.json`** : Utilisé par le moteur de l'application pour un chargement instantané.
+2. **`boutique_data.xlsx` (Classeur Excel multi-feuilles)** : Un vrai fichier Excel directement double-cliquable, organisé avec 8 feuilles de calcul claires et professionnelles :
+   - 📑 **Inventaire & Stock** (Référence, Nom, Catégorie, Quantité, Seuil, Prix Achat, Prix Vente, Marge, Valeur totale)
+   - 📑 **SAV & Réparations** (N° Ticket, Date, Nom Client, Téléphone, Appareil, Panne, Diagnostic, Technicien, Statut, Coût)
+   - 📑 **Finances & Caisse** (N° Transaction, Date, Type, Catégorie, Montant en DZD, Description, Mode de paiement)
+   - 📑 **Ventes Comptoir** (N° Vente, Date, Client, Articles, Total encaissé, Mode de règlement)
+   - 📑 **Revendeurs & Grossistes** (Nom, Société, Téléphone, Remise %, Plafond de crédit, Solde dû)
+   - 📑 **Clients** (Code, Nom, Prénom, Téléphone, Email, Ville, Total achats)
+   - 📑 **Fournisseurs** (Nom, Contact, Téléphone, Ville, Délai moyen de livraison)
+   - 📑 **Rappels Téléphoniques** (Client, Téléphone, Date/Heure appel, Action demandée, Statut)
+
+### 11.2 Accès & Ouverture en 1 Clic
+Dans l'onglet **« Paramètres »** :
+- Cliquez sur **« Ouvrir directement dans Excel »** pour lancer Microsoft Excel avec toutes vos données à jour.
+- Cliquez sur **« Ouvrir le dossier des fichiers »** pour accéder directement au dossier contenant les fichiers Excel et JSON.
+- Boutons **« Exporter Excel »** disponibles directement sur les pages Stock, Réparations et Finances.
+
+### 11.3 Réplication Tournante & Sauvegardes
+- À chaque modification, une copie de réplication horodatée est enregistrée dans le dossier `backups/` (ex: `backup_2026-11-19_10-30.xlsx` et `.json`).
+- L'application conserve les 7 dernières sauvegardes automatiquement (paramétrable) et recycle les plus anciennes.
+
+### 11.4 Base 100% Propre (Sans Données de Démo)
+Toutes les données de démonstration ont été entièrement purgées. L'application démarre vierge, prête à accueillir les véritables clients, articles et réparations de votre magasin.
 
 ---
 

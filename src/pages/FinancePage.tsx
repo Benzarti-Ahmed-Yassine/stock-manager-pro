@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import {
   TrendingUp, TrendingDown, Wallet, PlusCircle, Trash2,
   RefreshCw, DollarSign, ArrowUpCircle, ArrowDownCircle,
-  BarChart3, Calendar, Filter
+  BarChart3, Calendar, Filter, FileSpreadsheet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { transactionStorage } from "@/lib/storage";
+import { exportFinancesToExcel } from "@/lib/excel";
 import { formatPrice, formatDate, cn } from "@/lib/utils";
 import type { Transaction, TransactionType, TransactionCategory } from "@/types";
 
@@ -167,6 +168,9 @@ export default function FinancePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={exportFinancesToExcel} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter Excel
+          </Button>
           <Button onClick={() => setShowDialog(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
             <PlusCircle className="w-4 h-4" /> Nouvelle Transaction
           </Button>

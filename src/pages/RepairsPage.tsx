@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, Search, Wrench, Edit2, Trash2, Clock, AlertCircle,
-  CheckCircle2, XCircle, Filter, Phone, User
+  CheckCircle2, XCircle, Filter, Phone, User, FileSpreadsheet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { repairStorage } from "@/lib/storage";
+import { exportRepairsToExcel } from "@/lib/excel";
 import { formatDateTime, cn } from "@/lib/utils";
 import type { RepairItem, RepairStatus, RepairPriority } from "@/types";
 import { toast } from "sonner";
@@ -148,9 +149,14 @@ export default function RepairsPage() {
           </h1>
           <p className="page-subtitle">Gestion du service après-vente et des réparations</p>
         </div>
-        <Button onClick={() => { setEditItem(null); reset({ status: "reçu", priorite: "normale" }); setOpenDialog(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Nouvelle réparation
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportRepairsToExcel} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter Excel
+          </Button>
+          <Button onClick={() => { setEditItem(null); reset({ status: "reçu", priorite: "normale" }); setOpenDialog(true); }} className="gap-2">
+            <Plus className="w-4 h-4" /> Nouvelle réparation
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

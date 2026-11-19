@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Filter, Package, Edit2, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Search, Filter, Package, Edit2, Trash2, ChevronUp, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { stockStorage } from "@/lib/storage";
+import { exportStockToExcel } from "@/lib/excel";
 import { formatPrice, formatDate, cn } from "@/lib/utils";
 import type { StockItem, Category } from "@/types";
 import { toast } from "sonner";
@@ -145,9 +146,14 @@ export default function StockPage() {
             {stats.total} articles · Valeur: {formatPrice(stats.valeur)}
           </p>
         </div>
-        <Button onClick={() => { setEditItem(null); reset(); setOpenAdd(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Ajouter un article
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportStockToExcel} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter Excel
+          </Button>
+          <Button onClick={() => { setEditItem(null); reset(); setOpenAdd(true); }} className="gap-2">
+            <Plus className="w-4 h-4" /> Ajouter un article
+          </Button>
+        </div>
       </div>
 
       {/* Quick stats */}

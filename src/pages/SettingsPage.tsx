@@ -2,14 +2,15 @@ import { useState, useEffect } from "react";
 import {
   Settings, Save, Download, Upload, RefreshCw, Shield,
   HardDrive, Bell, Store, AlertTriangle, Trash2, CheckCircle2,
-  FolderOpen, FileText, Check, Copy
+  FolderOpen, FileText, Check, Copy, FileSpreadsheet, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { settingsStorage, exportAllData, importAllData, triggerFilePersistence } from "@/lib/storage";
+import { settingsStorage, exportAllData, importAllData, triggerFilePersistence, clearAllData } from "@/lib/storage";
+import { downloadExcelFile } from "@/lib/excel";
 import type { AppSettings } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -92,11 +93,10 @@ export default function SettingsPage() {
   };
 
   const handleResetDemoData = () => {
-    if (!window.confirm("Supprimer TOUTES les données et réinitialiser ? Cette action est irréversible !")) return;
-    const prefix = "techshop_";
-    Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
-    toast.success("Données effacées. L'application va redémarrer...");
-    setTimeout(() => window.location.reload(), 1500);
+    if (!window.confirm("Supprimer TOUTES les données et repartir sur une base 100% vierge (sans données de démonstration) ? Cette action est irréversible !")) return;
+    clearAllData();
+    toast.success("Données effacées. L'application va redémarrer propre...");
+    setTimeout(() => window.location.reload(), 1200);
   };
 
   return (
@@ -233,11 +233,35 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-wrap gap-3 pt-2">
+          <Button onClick={() => { downloadExcelFile(); toast.success("Classeur Excel généré et téléchargé !"); }} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter en Excel (.xlsx)
+          </Button>
+          {storageInfo?.excelExists && window.electronAPI?.openExcelFile && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const ok = await window.electronAPI?.openExcelFile?.();
+                if (!ok) toast.error("Le fichier Excel n'est pas encore créé");
+              }}
+              className="gap-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300"
+            >
+              <ExternalLink className="w-4 h-4" /> Ouvrir directement dans Excel
+            </Button>
+          )}
+          {window.electronAPI?.openDataFolder && (
+            <Button
+              variant="outline"
+              onClick={() => window.electronAPI?.openDataFolder?.()}
+              className="gap-2"
+            >
+              <FolderOpen className="w-4 h-4" /> Ouvrir le dossier des fichiers
+            </Button>
+          )}
           <Button onClick={handleExport} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" /> Exporter les données (JSON)
+            <Download className="w-4 h-4" /> Exporter JSON
           </Button>
           <Button onClick={handleImport} variant="outline" className="gap-2">
-            <Upload className="w-4 h-4" /> Importer une sauvegarde (JSON)
+            <Upload className="w-4 h-4" /> Importer JSON
           </Button>
         </div>
       </div>
