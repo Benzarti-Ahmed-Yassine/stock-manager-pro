@@ -371,7 +371,7 @@ export default function SalesPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Remise globale (DZD)</Label>
+                    <Label className="text-xs text-muted-foreground">Remise globale (DT)</Label>
                     <Input
                       type="number"
                       min="0"

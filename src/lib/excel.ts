@@ -21,10 +21,10 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Quantité en Stock": item.quantite,
     "Seuil d'Alerte": item.seuilAlerte,
     "Statut": item.status === "en_stock" ? "En stock" : item.status === "stock_faible" ? "Stock faible" : "Rupture",
-    "Prix Achat (DZD)": item.prixAchat,
-    "Prix Vente (DZD)": item.prixVente,
-    "Marge Unitaire (DZD)": item.prixVente - item.prixAchat,
-    "Valeur Stock Achat (DZD)": item.prixAchat * item.quantite,
+    "Prix Achat (DT)": item.prixAchat,
+    "Prix Vente (DT)": item.prixVente,
+    "Marge Unitaire (DT)": item.prixVente - item.prixAchat,
+    "Valeur Stock Achat (DT)": item.prixAchat * item.quantite,
     "Emplacement": item.emplacement || "",
     "Date Ajout": item.dateAjout ? new Date(item.dateAjout).toLocaleDateString("fr-FR") : "",
   }));
@@ -47,8 +47,8 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Technicien": r.technicien || "",
     "Priorité": r.priorite.toUpperCase(),
     "Statut": r.status,
-    "Coût Estimé (DZD)": r.coutEstime || 0,
-    "Coût Final (DZD)": r.coutFinal || 0,
+    "Coût Estimé (DT)": r.coutEstime || 0,
+    "Coût Final (DT)": r.coutFinal || 0,
     "Garantie": r.garantie ? "Oui" : "Non",
   }));
   const wsRepairs = XLSX.utils.json_to_sheet(repairData.length ? repairData : [{ "Information": "Aucune réparation enregistrée" }]);
@@ -60,7 +60,7 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Date": t.date ? new Date(t.date).toLocaleDateString("fr-FR") : "",
     "Type": t.type === "revenu" ? "REVENU (ENTRÉE)" : "DÉPENSE (SORTIE)",
     "Catégorie": t.categorie,
-    "Montant (DZD)": t.montant,
+    "Montant (DT)": t.montant,
     "Description": t.description,
     "Mode Paiement": t.methodePaiement || "espèces",
     "Référence Externe": t.referenceExterne || "",
@@ -75,9 +75,9 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Date": s.dateVente ? new Date(s.dateVente).toLocaleDateString("fr-FR") : "",
     "Client": s.clientNom || "Client Comptoir",
     "Nombre d'Articles": s.lignes.reduce((sum, l) => sum + l.quantite, 0),
-    "Sous-Total (DZD)": s.sousTotal,
-    "Remise (DZD)": s.remiseGlobale,
-    "Montant Total (DZD)": s.montantTotal,
+    "Sous-Total (DT)": s.sousTotal,
+    "Remise (DT)": s.remiseGlobale,
+    "Montant Total (DT)": s.montantTotal,
     "Mode Règlement": s.methodePaiement,
     "Vendeur": s.vendeur || "",
   }));
@@ -94,9 +94,9 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Ville": r.ville || "",
     "Type": r.type,
     "Remise (%)": r.remisePourcentage || 0,
-    "Plafond Crédit (DZD)": r.plafondCredit || 0,
-    "Solde Dû Actuel (DZD)": r.soldeEnCours || 0,
-    "Total Achats (DZD)": r.totalAchats || 0,
+    "Plafond Crédit (DT)": r.plafondCredit || 0,
+    "Solde Dû Actuel (DT)": r.soldeEnCours || 0,
+    "Total Achats (DT)": r.totalAchats || 0,
     "Notes": r.notes || "",
   }));
   const wsResellers = XLSX.utils.json_to_sheet(resellerData.length ? resellerData : [{ "Information": "Aucun revendeur enregistré" }]);
@@ -112,7 +112,7 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Ville": c.ville || "",
     "Type": c.type === "particulier" ? "Particulier" : "Entreprise",
     "Entreprise": c.entreprise || "",
-    "Total Achats (DZD)": c.totalAchats || 0,
+    "Total Achats (DT)": c.totalAchats || 0,
   }));
   const wsClients = XLSX.utils.json_to_sheet(clientsData.length ? clientsData : [{ "Information": "Aucun client enregistré" }]);
   XLSX.utils.book_append_sheet(wb, wsClients, "Clients");
@@ -125,7 +125,7 @@ export function generateFullWorkbook(): XLSX.WorkBook {
     "Téléphone": f.telephone || "",
     "Email": f.email || "",
     "Ville": f.ville || "",
-    "Pays": f.pays || "Algérie",
+    "Pays": f.pays || "Tunisie",
     "Délai Livraison (Jours)": f.delaiLivraison || 5,
     "Conditions": f.conditions || "",
   }));
@@ -176,8 +176,8 @@ export function exportStockToExcel() {
     "Modèle": item.modele || "",
     "Quantité": item.quantite,
     "Alerte": item.seuilAlerte,
-    "Prix Achat (DZD)": item.prixAchat,
-    "Prix Vente (DZD)": item.prixVente,
+    "Prix Achat (DT)": item.prixAchat,
+    "Prix Vente (DT)": item.prixVente,
     "Emplacement": item.emplacement || "",
     "Statut": item.status,
   }));
@@ -198,7 +198,7 @@ export function exportRepairsToExcel() {
     "Diagnostic": r.diagnostic || "",
     "Technicien": r.technicien || "",
     "Statut": r.status,
-    "Coût Final (DZD)": r.coutFinal || r.coutEstime || 0,
+    "Coût Final (DT)": r.coutFinal || r.coutEstime || 0,
   }));
   const ws = XLSX.utils.json_to_sheet(repairs);
   XLSX.utils.book_append_sheet(wb, ws, "SAV");
@@ -212,7 +212,7 @@ export function exportFinancesToExcel() {
     "Date": t.date ? new Date(t.date).toLocaleDateString("fr-FR") : "",
     "Type": t.type.toUpperCase(),
     "Catégorie": t.categorie,
-    "Montant (DZD)": t.montant,
+    "Montant (DT)": t.montant,
     "Description": t.description,
     "Paiement": t.methodePaiement || "espèces",
   }));

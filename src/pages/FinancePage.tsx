@@ -454,12 +454,13 @@ export default function FinancePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="montant">Montant (DZD) *</Label>
+                <Label htmlFor="montant">Montant (DT) *</Label>
                 <Input
                   id="montant"
                   type="number"
-                  min="1"
-                  placeholder="ex: 25000"
+                  step="0.001"
+                  min="0.1"
+                  placeholder="ex: 120.500"
                   value={form.montant}
                   onChange={e => setForm(f => ({ ...f, montant: e.target.value }))}
                   required

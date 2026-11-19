@@ -325,12 +325,12 @@ export default function StockPage() {
                 <Input type="number" min="0" {...register("seuilAlerte", { required: true, min: 0 })} />
               </div>
               <div>
-                <Label>Prix d'achat (DZD) *</Label>
-                <Input type="number" min="0" step="1" {...register("prixAchat", { required: true, min: 0 })} />
+                <Label>Prix d'achat (DT) *</Label>
+                <Input type="number" min="0" step="0.001" {...register("prixAchat", { required: true, min: 0 })} />
               </div>
               <div>
-                <Label>Prix de vente (DZD) *</Label>
-                <Input type="number" min="0" step="1" {...register("prixVente", { required: true, min: 0 })} />
+                <Label>Prix de vente (DT) *</Label>
+                <Input type="number" min="0" step="0.001" {...register("prixVente", { required: true, min: 0 })} />
               </div>
               <div className="col-span-2">
                 <Label>Description</Label>

@@ -4,7 +4,7 @@ import {
   Wrench, CheckCircle2, Clock, AlertTriangle, AlertCircle,
   Package, ShoppingCart, ArrowRight, User, Phone, Laptop,
   Cpu, Check, RefreshCw, PlusCircle, Sparkles, Filter, Hourglass,
-  ClipboardPlus, X, ChevronDown, ChevronUp
+  ClipboardPlus, X, ChevronDown, ChevronUp, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { repairStorage, stockStorage, orderStorage, clientStorage } from "@/lib/storage";
+import { repairStorage, stockStorage, orderStorage, clientStorage, reminderStorage } from "@/lib/storage";
 import { formatDateTime, cn } from "@/lib/utils";
-import type { RepairItem, RepairStatus, RepairPriority } from "@/types";
+import type { RepairItem, RepairStatus, RepairPriority, Reminder } from "@/types";
 import { toast } from "sonner";
 
 const STATUS_LABELS: Record<RepairStatus, { label: string; color: string; badgeClass: string }> = {
@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [repairs, setRepairs] = useState<RepairItem[]>(() => repairStorage.getAll());
   const [stock, setStock] = useState(() => stockStorage.getAll());
   const [orders, setOrders] = useState(() => orderStorage.getAll());
+  const [reminders, setReminders] = useState<Reminder[]>(() => reminderStorage.getActifs());
 
   // Filter for the "A réparer" section
   const [filterActiveTab, setFilterActiveTab] = useState<"all_pending" | "attente_piece" | "diagnostic" | "urgents">("all_pending");
@@ -84,6 +85,7 @@ export default function DashboardPage() {
     setRepairs(repairStorage.getAll());
     setStock(stockStorage.getAll());
     setOrders(orderStorage.getAll());
+    setReminders(reminderStorage.getActifs());
   };
 
   // Quick action from dashboard to update repair status
@@ -274,7 +276,7 @@ export default function DashboardPage() {
                     <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <Input
                       className="pl-8 h-9 text-sm"
-                      placeholder="06XXXXXXXX"
+                      placeholder="20 123 456 / 98 123 456"
                       value={intake.clientTel}
                       onChange={e => setIntake(f => ({ ...f, clientTel: e.target.value }))}
                     />
@@ -357,6 +359,46 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Rappels d'appels clients actifs */}
+      {reminders.length > 0 && (
+        <div className="bg-amber-50/70 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-800 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+              <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
+              Rappels d'Appels Téléphoniques à Passer ({reminders.length})
+            </h3>
+            <Link to="/rappels" className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline">
+              Voir tous les rappels →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {reminders.slice(0, 3).map(r => (
+              <div key={r.id} className="p-3 rounded-lg bg-card border border-amber-200 dark:border-amber-900/60 text-xs flex items-center justify-between gap-2 shadow-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-foreground truncate">{r.clientNom}</p>
+                  <p className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Phone className="w-3 h-3 text-amber-600" /> {r.clientTel}
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300 font-medium truncate mt-0.5">{r.message}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-[11px] text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 flex-shrink-0 font-semibold"
+                  onClick={() => {
+                    reminderStorage.update(r.id, { status: "effectué", dateEffectue: new Date().toISOString() });
+                    refreshData();
+                    toast.success("Rappel marqué comme effectué !");
+                  }}
+                >
+                  <Check className="w-3 h-3 mr-1" /> Appel Fait
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Primary Operational KPIs - ZERO CURRENCY */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

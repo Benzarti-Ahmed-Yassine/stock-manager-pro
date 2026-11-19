@@ -215,7 +215,7 @@ export interface Reseller {
   type: "revendeur" | "grossiste" | "partenaire";
   entreprise?: string;
   remisePourcentage?: number;   // % de remise accordée
-  plafondCredit?: number;       // Plafond crédit en DZD
+  plafondCredit?: number;       // Plafond crédit en DT
   soldeEnCours?: number;        // Solde actuel dû
   dateCreation: string;
   totalAchats: number;
@@ -290,8 +290,8 @@ export interface AppSettings {
   dataFilePath?: string;        // chemin custom pour le fichier de données
   backupFolderPath?: string;    // chemin dossier backup
   backupCount: number;          // nombre de backups à conserver
-  currency: string;             // "DZD"
-  locale: string;               // "fr-DZ"
+  currency: string;             // "TND" (DT)
+  locale: string;               // "fr-TN"
   technicienName?: string;      // nom du technicien par défaut
   remindersEnabled: boolean;
   darkMode?: boolean;

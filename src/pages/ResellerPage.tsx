@@ -36,7 +36,7 @@ const EMPTY_RESELLER = {
 
 const EMPTY_SUPPLIER = {
   nom: "", contact: "", telephone: "", email: "", adresse: "",
-  ville: "", pays: "Algérie", delaiLivraison: 5, conditions: "", notes: "",
+  ville: "", pays: "Tunisie", delaiLivraison: 3, conditions: "", notes: "",
 };
 
 export default function ResellerPage() {
@@ -412,17 +412,17 @@ export default function ResellerPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Téléphone *</Label>
-                <Input value={resellerForm.telephone} onChange={e => setResellerForm(f => ({ ...f, telephone: e.target.value }))} placeholder="06XXXXXXXX" required />
+                <Input value={resellerForm.telephone} onChange={e => setResellerForm(f => ({ ...f, telephone: e.target.value }))} placeholder="2X XXX XXX" required />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input type="email" value={resellerForm.email} onChange={e => setResellerForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemple.dz" />
+                <Input type="email" value={resellerForm.email} onChange={e => setResellerForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@exemple.tn" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Ville</Label>
-                <Input value={resellerForm.ville} onChange={e => setResellerForm(f => ({ ...f, ville: e.target.value }))} placeholder="Alger, Oran..." />
+                <Input value={resellerForm.ville} onChange={e => setResellerForm(f => ({ ...f, ville: e.target.value }))} placeholder="Tunis, Sousse, Sfax..." />
               </div>
               <div>
                 <Label>Type</Label>
@@ -442,12 +442,12 @@ export default function ResellerPage() {
                 <Input type="number" min="0" max="100" value={resellerForm.remisePourcentage} onChange={e => setResellerForm(f => ({ ...f, remisePourcentage: +e.target.value }))} />
               </div>
               <div>
-                <Label>Plafond crédit (DZD)</Label>
-                <Input type="number" min="0" value={resellerForm.plafondCredit} onChange={e => setResellerForm(f => ({ ...f, plafondCredit: +e.target.value }))} />
+                <Label>Plafond crédit (DT)</Label>
+                <Input type="number" step="0.001" min="0" value={resellerForm.plafondCredit} onChange={e => setResellerForm(f => ({ ...f, plafondCredit: +e.target.value }))} />
               </div>
               <div>
-                <Label>Solde en cours (DZD)</Label>
-                <Input type="number" min="0" value={resellerForm.soldeEnCours} onChange={e => setResellerForm(f => ({ ...f, soldeEnCours: +e.target.value }))} />
+                <Label>Solde en cours (DT)</Label>
+                <Input type="number" step="0.001" min="0" value={resellerForm.soldeEnCours} onChange={e => setResellerForm(f => ({ ...f, soldeEnCours: +e.target.value }))} />
               </div>
             </div>
             <div>
@@ -480,12 +480,12 @@ export default function ResellerPage() {
               </div>
               <div>
                 <Label>Téléphone</Label>
-                <Input value={supplierForm.telephone} onChange={e => setSupplierForm(f => ({ ...f, telephone: e.target.value }))} placeholder="05XXXXXXXX" />
+                <Input value={supplierForm.telephone} onChange={e => setSupplierForm(f => ({ ...f, telephone: e.target.value }))} placeholder="71 XXX XXX / 2X XXX XXX" />
               </div>
             </div>
             <div>
               <Label>Email</Label>
-              <Input type="email" value={supplierForm.email} onChange={e => setSupplierForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@fournisseur.dz" />
+              <Input type="email" value={supplierForm.email} onChange={e => setSupplierForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@fournisseur.tn" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

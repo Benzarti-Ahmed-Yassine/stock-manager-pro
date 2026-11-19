@@ -150,7 +150,7 @@ export default function SettingsPage() {
               id="boutiquePhone"
               value={settings.boutiquePhone || ""}
               onChange={e => setSettings(s => ({ ...s, boutiquePhone: e.target.value }))}
-              placeholder="05XXXXXXXX"
+              placeholder="+216 71 XXX XXX / 20 XXX XXX"
             />
           </div>
           <div>

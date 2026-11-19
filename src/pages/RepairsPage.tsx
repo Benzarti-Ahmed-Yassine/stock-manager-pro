@@ -398,12 +398,12 @@ export default function RepairsPage() {
                 <Input {...register("technicien")} placeholder="Prénom" />
               </div>
               <div>
-                <Label>Coût estimé (DZD)</Label>
-                <Input type="number" min="0" {...register("coutEstime")} />
+                <Label>Coût estimé (DT)</Label>
+                <Input type="number" step="0.001" min="0" {...register("coutEstime")} />
               </div>
               <div>
-                <Label>Coût final (DZD)</Label>
-                <Input type="number" min="0" {...register("coutFinal")} />
+                <Label>Coût final (DT)</Label>
+                <Input type="number" step="0.001" min="0" {...register("coutFinal")} />
               </div>
             </div>
 

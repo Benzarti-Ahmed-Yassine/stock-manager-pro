@@ -497,8 +497,8 @@ export const reminderStorage = {
 // ============================================================
 const DEFAULT_SETTINGS: AppSettings = {
   boutiqueName: "Boutique Informatique & SAV",
-  currency: "DZD",
-  locale: "fr-DZ",
+  currency: "TND",
+  locale: "fr-TN",
   backupCount: 7,
   remindersEnabled: true,
 };

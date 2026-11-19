@@ -306,7 +306,7 @@ export default function RemindersPage() {
               <div>
                 <Label>Téléphone</Label>
                 <Input
-                  placeholder="06XXXXXXXX"
+                  placeholder="2X XXX XXX / 9X XXX XXX"
                   value={form.clientTel}
                   onChange={e => setForm(f => ({ ...f, clientTel: e.target.value }))}
                 />
