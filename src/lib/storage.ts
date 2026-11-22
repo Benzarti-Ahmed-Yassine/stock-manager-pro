@@ -60,7 +60,7 @@ function nextCounter(key: keyof Counters): number {
 }
 
 // ============================================================
-// GENERIC HELPERS & FILE SYNC (JSON & EXCEL)
+// GENERIC HELPERS & FILE SYNC (JSON, EXCEL & SQLITE 3 DATABASE)
 // ============================================================
 let syncTimeout: any = null;
 
@@ -71,11 +71,21 @@ export function triggerFilePersistence() {
       try {
         const fullData = JSON.parse(exportAllData());
         let excelBase64: string | undefined = undefined;
+        let sqliteBase64: string | undefined = undefined;
+
         try {
           const { getExcelBase64 } = await import("./excel");
           excelBase64 = getExcelBase64();
         } catch (_) {}
-        window.electronAPI!.saveFileData!({ data: fullData, excelBase64 });
+
+        try {
+          const { getSQLiteBase64 } = await import("./sqlite");
+          sqliteBase64 = await getSQLiteBase64();
+        } catch (err) {
+          console.error("Erreur génération SQLite:", err);
+        }
+
+        window.electronAPI!.saveFileData!({ data: fullData, excelBase64, sqliteBase64 });
       } catch (err) {
         console.error("Erreur sync fichier:", err);
       }

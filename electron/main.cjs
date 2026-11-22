@@ -46,10 +46,10 @@ function getBackupDir() {
   return dir;
 }
 
-// Fonction de rotation des sauvegardes (JSON et Excel)
+// Fonction de rotation des sauvegardes (JSON, Excel et SQLite)
 function rotateBackups(backupDir, maxCount) {
   try {
-    ['.json', '.xlsx'].forEach(ext => {
+    ['.json', '.xlsx', '.sqlite'].forEach(ext => {
       const files = fs.readdirSync(backupDir)
         .filter(f => f.startsWith('backup_') && f.endsWith(ext))
         .map(f => ({
@@ -99,13 +99,15 @@ function createWindow() {
   }
 }
 
-// IPC Handlers pour la persistance fichier, Excel et sauvegardes
+// IPC Handlers pour la persistance fichier, Excel, SQLite et sauvegardes
 ipcMain.handle('get-storage-info', async () => {
   const cfg = getConfig();
   const filePath = getDataFilePath();
   const excelPath = filePath.replace(/\.json$/i, '.xlsx');
+  const sqlitePath = filePath.replace(/\.json$/i, '.sqlite');
   const exists = fs.existsSync(filePath);
   const excelExists = fs.existsSync(excelPath);
+  const sqliteExists = fs.existsSync(sqlitePath);
   let size = 0;
   let lastModified = null;
   if (exists) {
@@ -116,9 +118,11 @@ ipcMain.handle('get-storage-info', async () => {
   return {
     filePath,
     excelPath,
+    sqlitePath,
     backupDir: getBackupDir(),
     exists,
     excelExists,
+    sqliteExists,
     size,
     lastModified,
     config: cfg,
@@ -142,6 +146,7 @@ ipcMain.handle('save-file-data', async (event, payload) => {
   try {
     const data = payload && payload.data ? payload.data : payload;
     const excelBase64 = payload && payload.excelBase64 ? payload.excelBase64 : null;
+    const sqliteBase64 = payload && payload.sqliteBase64 ? payload.sqliteBase64 : null;
     const filePath = getDataFilePath();
     const backupDir = getBackupDir();
     const jsonStr = JSON.stringify(data, null, 2);
@@ -157,7 +162,16 @@ ipcMain.handle('save-file-data', async (event, payload) => {
       fs.writeFileSync(excelPath, Buffer.from(excelBase64, 'base64'));
     }
 
-    // 3. Créer une copie de réplication / backup JSON et Excel
+    // 3. Écrire la Base de Données Relationnelle SQLite (.sqlite & .db)
+    const sqlitePath = filePath.replace(/\.json$/i, '.sqlite');
+    const dbPath = filePath.replace(/\.json$/i, '.db');
+    if (sqliteBase64) {
+      const sqliteBuffer = Buffer.from(sqliteBase64, 'base64');
+      fs.writeFileSync(sqlitePath, sqliteBuffer);
+      fs.writeFileSync(dbPath, sqliteBuffer);
+    }
+
+    // 4. Créer une copie de réplication / backup JSON, Excel et SQLite
     const now = new Date();
     const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const backupFile = path.join(backupDir, `backup_${dateStr}.json`);
@@ -168,11 +182,16 @@ ipcMain.handle('save-file-data', async (event, payload) => {
       fs.writeFileSync(backupExcel, Buffer.from(excelBase64, 'base64'));
     }
 
-    // 4. Rotation des backups (garder les N derniers)
+    if (sqliteBase64) {
+      const backupSqlite = path.join(backupDir, `backup_${dateStr}.sqlite`);
+      fs.writeFileSync(backupSqlite, Buffer.from(sqliteBase64, 'base64'));
+    }
+
+    // 5. Rotation des backups (garder les N derniers)
     const cfg = getConfig();
     rotateBackups(backupDir, cfg.backupCount || 7);
 
-    return { success: true, filePath, excelPath, backupFile };
+    return { success: true, filePath, excelPath, sqlitePath, backupFile };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -188,6 +207,15 @@ ipcMain.handle('open-excel-file', async () => {
   const excelPath = getDataFilePath().replace(/\.json$/i, '.xlsx');
   if (fs.existsSync(excelPath)) {
     shell.openPath(excelPath);
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('open-sqlite-file', async () => {
+  const sqlitePath = getDataFilePath().replace(/\.json$/i, '.sqlite');
+  if (fs.existsSync(sqlitePath)) {
+    shell.openPath(sqlitePath);
     return true;
   }
   return false;

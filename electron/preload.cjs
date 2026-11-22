@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setStorageConfig: (config) => ipcRenderer.invoke('set-storage-config', config),
   openDataFolder: () => ipcRenderer.invoke('open-data-folder'),
   openExcelFile: () => ipcRenderer.invoke('open-excel-file'),
+  openSqliteFile: () => ipcRenderer.invoke('open-sqlite-file'),
   showNotification: (payload) => ipcRenderer.invoke('show-native-notification', payload),
 });

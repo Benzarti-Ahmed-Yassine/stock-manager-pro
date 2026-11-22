@@ -209,33 +209,34 @@ Accessible depuis **« Rappels & Appels »** et directement via la cloche de not
 
 ---
 
-## 11. Base de Données, Stockage Excel (.xlsx) & Réplication Automatique
+## 11. Base de Données Relationnelle SQLite 3, Classeur Excel (.xlsx) & Sauvegardes
 
-### 11.1 Avec quelle Base de Données travaille l'application ?
-L'application s'appuie sur une **architecture hybride ultra-robuste et décentralisée** spécialement pensée pour la sécurité et la continuité d'un commerce indépendant :
-1. **Moteur en Mémoire Haute Vitesse (`localStorage`)** :
-   - Assure un temps de réponse instantané (0 latence), même en cas de coupure internet ou réseau.
-   - Les formulaires, recherches, encaissements et filtres répondent immédiatement.
-2. **Synchronisation Miroir Fichier JSON (`boutique_data.json`)** :
-   - À chaque modification, les données sont persistées sur le disque dur via l'API Electron.
-   - Ce fichier JSON standard assure l'intégrité relationnelle de tous les modules (Stock, SAV, Comptes, Ventes, Rappels).
-3. **Miroir Tableur Excel Natif (`boutique_data.xlsx`)** :
-   - Généré automatiquement à chaque opération.
-   - Vous disposez toujours d'un fichier Excel lisible et exploitable en dehors du logiciel sur n'importe quel ordinateur ou smartphone.
-4. **Système de Réplication & Backups Tournants** :
-   - Un dossier `backups/` conserve les 7 dernières sauvegardes automatiques horodatées.
-   - Aucun risque de perte de données en cas de panne matérielle ou coupure électrique.
+### 11.1 Architecture avec Moteur SQL Relationnel SQLite 3
+L'application intègre désormais une **vraie base de données relationnelle SQLite 3** (`boutique_database.sqlite` / `boutique.db`) :
+1. **Base de Données Relationnelle SQLite 3 (Standard International)** :
+   - Transactions ACID sécurisées : aucun risque d'incohérence même en cas de coupure brutale du PC.
+   - Les données sont organisées en tables SQL avec clés primaires et relations :
+     - 🗄️ `stock` (Inventaire, références, seuils d'alerte, prix d'achat et vente en DT)
+     - 🗄️ `repairs` (Tickets SAV, appareils, pannes, code PIN, schéma de déverrouillage, avances et reste dû)
+     - 🗄️ `clients` (Coordonnées complètes, historiques des achats et réparations)
+     - 🗄️ `resellers` (Partenaires commerciaux, techniciens tiers, solde débit/crédit)
+     - 🗄️ `compte_operations` (Livre comptable des opérations du compte courant partenaire)
+     - 🗄️ `transactions` (Livre de caisse des entrées et sorties d'argent en DT)
+     - 🗄️ `sales` (Ventes au comptoir, paniers, remises et modes de règlement)
+     - 🗄️ `suppliers` (Fournisseurs, délais de livraison, contacts)
+     - 🗄️ `orders` (Commandes d'approvisionnement passées aux fournisseurs)
+     - 🗄️ `reminders` (Rappels d'appels téléphoniques clients)
+   - Le fichier `.sqlite` peut être ouvert directement avec **DB Browser for SQLite**, **DBeaver** ou toute console SQL standard.
+2. **Synchronisation Miroir Excel Automatique (`boutique_data.xlsx`)** :
+   - À chaque modification, un vrai classeur Excel multi-feuilles est régénéré pour consultation dans Microsoft Excel.
+3. **Miroir JSON (`boutique_data.json`) & Backups Tournants** :
+   - Fichier JSON pour la portabilité et rotation automatique des 7 dernières sauvegardes dans `backups/`.
 
-### 11.2 Organisation des 8 Feuilles du Classeur Excel (.xlsx)
-Le fichier `boutique_data.xlsx` est directement double-cliquable dans **Microsoft Excel** ou **Google Sheets** :
-- 📑 **Inventaire & Stock** (Référence, Nom, Catégorie, Quantité, Seuil, Prix Achat, Prix Vente en DT, Marge, Valeur totale)
-- 📑 **SAV & Réparations** (N° Ticket, Date, Nom Client, Téléphone, Appareil, Panne, Diagnostic, Technicien, Statut, Coût en DT, **Avance Versée**, **Reste à Payer**, **Code PIN**, **Schéma Unlock**)
-- 📑 **Finances & Caisse** (N° Transaction, Date, Type, Catégorie, Montant en DT, Description, Mode de paiement)
-- 📑 **Ventes Comptoir** (N° Vente, Date, Client, Articles, Total encaissé, Mode de règlement)
-- 📑 **Revendeurs & Partenaires** (Nom, Société, Téléphone, Type, Remise %, Plafond de crédit, **Solde Dû Actuel en DT**)
-- 📑 **Clients** (Code, Nom, Prénom, Téléphone, Email, Ville, Total achats en DT)
-- 📑 **Fournisseurs** (Nom, Contact, Téléphone, Ville, Délai moyen de livraison)
-- 📑 **Rappels Téléphoniques** (Client, Téléphone, Date/Heure appel, Action demandée, Statut)
+### 11.2 Accès & Téléchargement de la Base SQLite (.sqlite)
+Dans l'onglet **« Paramètres »** :
+- **« Télécharger Base SQLite (.sqlite) »** : Télécharge instantanément le fichier binaire SQLite pour vos sauvegardes externes ou requêtes SQL.
+- **« Ouvrir SQLite »** : Ouvre directement le fichier `.sqlite` dans l'explorateur ou votre visualiseur SQL.
+- **Vue d'ensemble des tables SQL** : Affiche le nombre exact d'enregistrements en direct pour chaque table relationnelle.
 
 ### 11.2 Accès & Ouverture en 1 Clic
 Dans l'onglet **« Paramètres »** :

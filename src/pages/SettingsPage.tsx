@@ -2,15 +2,18 @@ import { useState, useEffect } from "react";
 import {
   Settings, Save, Download, Upload, RefreshCw, Shield,
   HardDrive, Bell, Store, AlertTriangle, Trash2, CheckCircle2,
-  FolderOpen, FileText, Check, Copy, FileSpreadsheet, ExternalLink
+  FolderOpen, FileText, Check, Copy, FileSpreadsheet, ExternalLink,
+  Database as DatabaseIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { settingsStorage, exportAllData, importAllData, triggerFilePersistence, clearAllData } from "@/lib/storage";
 import { downloadExcelFile } from "@/lib/excel";
+import { downloadSQLiteFile, getSQLiteStats } from "@/lib/sqlite";
 import type { AppSettings } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +22,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [networkPath, setNetworkPath] = useState("");
+  const [sqliteStats, setSqliteStats] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     if (window.electronAPI?.getStorageInfo) {
@@ -29,6 +33,8 @@ export default function SettingsPage() {
         }
       });
     }
+
+    getSQLiteStats().then(stats => setSqliteStats(stats)).catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -263,6 +269,80 @@ export default function SettingsPage() {
           <Button onClick={handleImport} variant="outline" className="gap-2">
             <Upload className="w-4 h-4" /> Importer JSON
           </Button>
+        </div>
+      </div>
+
+      {/* Section: Base de Données Relationnelle SQLite 3 */}
+      <div className="bg-card border-2 border-primary/30 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 text-primary rounded-lg">
+              <DatabaseIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-foreground flex items-center gap-2">
+                Base de Données Relationnelle SQLite 3 (.sqlite / .db)
+                <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px]">
+                  ACID · Portable · Zero-Config
+                </Badge>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Base SQL professionnelle autonome, conforme aux standards industriels SQLite 3.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                await downloadSQLiteFile();
+                toast.success("Base de données SQLite (.sqlite) téléchargée !");
+              }}
+              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+            >
+              <Download className="w-4 h-4" /> Télécharger Base SQLite (.sqlite)
+            </Button>
+            {window.electronAPI?.openSqliteFile && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const ok = await window.electronAPI?.openSqliteFile?.();
+                  if (!ok) toast.error("Le fichier SQLite n'est pas encore créé");
+                }}
+                className="gap-2 text-xs"
+              >
+                <ExternalLink className="w-4 h-4" /> Ouvrir SQLite
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Tables relationnelles SQL */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Tables SQL Relationnelles Actives
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 text-xs">
+            {[
+              { table: "stock", label: "📦 stock", desc: "Inventaire" },
+              { table: "repairs", label: "🔧 repairs", desc: "Tickets SAV" },
+              { table: "clients", label: "👥 clients", desc: "Répertoire clients" },
+              { table: "resellers", label: "🤝 resellers", desc: "Partenaires" },
+              { table: "compte_operations", label: "📑 compte_operations", desc: "Compte courant" },
+              { table: "transactions", label: "💰 transactions", desc: "Finances & Caisse" },
+              { table: "sales", label: "🧾 sales", desc: "Ventes comptoir" },
+              { table: "suppliers", label: "🏢 suppliers", desc: "Fournisseurs" },
+              { table: "orders", label: "🚚 orders", desc: "Commandes" },
+              { table: "reminders", label: "🔔 reminders", desc: "Rappels d'appels" },
+            ].map(t => (
+              <div key={t.table} className="p-2.5 rounded-lg bg-muted/40 border border-border/70">
+                <span className="font-mono font-bold text-foreground block truncate">{t.label}</span>
+                <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+                <span className="text-xs font-extrabold text-primary mt-1 block">
+                  {sqliteStats ? `${sqliteStats[t.table] ?? 0} enregistrement(s)` : "Chargement..."}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
