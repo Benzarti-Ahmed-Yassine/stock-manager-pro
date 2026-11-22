@@ -315,7 +315,11 @@ export default function RemindersPage() {
 
             <div>
               <Label>Ticket SAV lié (optionnel)</Label>
-              <Select value={form.repairId} onValueChange={v => {
+              <Select value={form.repairId || "none"} onValueChange={v => {
+                if (v === "none") {
+                  setForm(f => ({ ...f, repairId: "" }));
+                  return;
+                }
                 const r = repairs.find(x => x.id === v);
                 if (r) setForm(f => ({ ...f, repairId: v, clientNom: r.clientNom, clientTel: r.clientTel }));
                 else setForm(f => ({ ...f, repairId: v }));
@@ -324,7 +328,7 @@ export default function RemindersPage() {
                   <SelectValue placeholder="Sélectionner un ticket..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun ticket lié</SelectItem>
+                  <SelectItem value="none">Aucun ticket lié</SelectItem>
                   {repairs.filter(r => !["livré", "annulé"].includes(r.status)).map(r => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.numeroTicket} · {r.clientNom} · {r.appareil}

@@ -224,3 +224,38 @@ export function exportFinancesToExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "Caisse");
   XLSX.writeFile(wb, `caisse_finances_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+export function exportClientsToExcel() {
+  const wb = XLSX.utils.book_new();
+  const clients = clientStorage.getAll().map(c => ({
+    "Code": c.code,
+    "Nom": c.nom,
+    "Prénom": c.prenom || "",
+    "Téléphone": c.telephone,
+    "Email": c.email || "",
+    "Ville": c.ville || "",
+    "Type": c.type === "particulier" ? "Particulier" : "Entreprise",
+    "Entreprise": c.entreprise || "",
+    "Total Achats (DT)": c.totalAchats || 0,
+    "Date Création": c.dateCreation ? new Date(c.dateCreation).toLocaleDateString("fr-FR") : "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(clients);
+  XLSX.utils.book_append_sheet(wb, ws, "Clients");
+  XLSX.writeFile(wb, `clients_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+export function exportOrdersToExcel() {
+  const wb = XLSX.utils.book_new();
+  const orders = orderStorage.getAll().map(o => ({
+    "N° Commande": o.numeroCommande,
+    "Fournisseur": o.fournisseurNom,
+    "Statut": o.status,
+    "Date Commande": o.dateCommande ? new Date(o.dateCommande).toLocaleDateString("fr-FR") : "",
+    "Date Livraison": o.dateLivraisonPrevue || "",
+    "Montant Total (DT)": o.montantTotal,
+    "Nombre d'Articles": o.lignes.reduce((sum, l) => sum + l.quantiteCommandee, 0),
+  }));
+  const ws = XLSX.utils.json_to_sheet(orders);
+  XLSX.utils.book_append_sheet(wb, ws, "Commandes");
+  XLSX.writeFile(wb, `commandes_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}

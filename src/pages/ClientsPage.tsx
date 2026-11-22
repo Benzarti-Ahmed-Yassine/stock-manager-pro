@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin,
-  Building2, UserCheck, ShoppingBag
+  Building2, UserCheck, ShoppingBag, FileSpreadsheet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { clientStorage } from "@/lib/storage";
+import { exportClientsToExcel } from "@/lib/excel";
 import { formatPrice, formatDate, cn } from "@/lib/utils";
 import type { Client } from "@/types";
 import { toast } from "sonner";
@@ -100,9 +101,14 @@ export default function ClientsPage() {
           </h1>
           <p className="page-subtitle">Particuliers & Entreprises clientes pour la vente et le SAV</p>
         </div>
-        <Button onClick={openAdd} className="gap-2">
-          <Plus className="w-4 h-4" /> Nouveau client
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportClientsToExcel} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter Excel
+          </Button>
+          <Button onClick={openAdd} className="gap-2">
+            <Plus className="w-4 h-4" /> Nouveau client
+          </Button>
+        </div>
       </div>
 
       {/* Quick stats */}
@@ -257,18 +263,18 @@ export default function ClientsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Téléphone *</Label>
-                <Input {...register("telephone", { required: true })} placeholder="05XXXXXXXX" />
+                <Input {...register("telephone", { required: true })} placeholder="2X XXX XXX" />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input type="email" {...register("email")} placeholder="email@domaine.com" />
+                <Input type="email" {...register("email")} placeholder="client@exemple.tn" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Ville</Label>
-                <Input {...register("ville")} placeholder="ex: Alger, Oran..." />
+                <Input {...register("ville")} placeholder="ex: Tunis, Sousse, Sfax..." />
               </div>
               <div>
                 <Label>Adresse</Label>

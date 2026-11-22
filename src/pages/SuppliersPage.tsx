@@ -37,7 +37,7 @@ export default function SuppliersPage() {
   const stock = stockStorage.getAll();
 
   const { register, handleSubmit, reset, setValue } = useForm<SupplierFormData>({
-    defaultValues: { delaiLivraison: 3, pays: "Algérie" }
+    defaultValues: { delaiLivraison: 3, pays: "Tunisie" }
   });
 
   const refresh = () => setSuppliers(supplierStorage.getAll());
@@ -54,7 +54,7 @@ export default function SuppliersPage() {
 
   const openAdd = () => {
     setEditSupplier(null);
-    reset({ delaiLivraison: 3, pays: "Algérie" });
+    reset({ delaiLivraison: 3, pays: "Tunisie" });
     setOpenDialog(true);
   };
 
@@ -163,7 +163,7 @@ export default function SuppliersPage() {
                     )}
                     {supplier.ville && (
                       <p className="flex items-center gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-primary" /> {supplier.ville}, {supplier.pays || "Algérie"}
+                        <MapPin className="w-3.5 h-3.5 text-primary" /> {supplier.ville}, {supplier.pays || "Tunisie"}
                       </p>
                     )}
                   </div>
@@ -205,7 +205,7 @@ export default function SuppliersPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <Label>Nom de la société / Grossiste *</Label>
-              <Input {...register("nom", { required: true })} placeholder="ex: Tech Distrib Algérie" />
+              <Input {...register("nom", { required: true })} placeholder="ex: Tech Distrib Tunisie" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -222,22 +222,22 @@ export default function SuppliersPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Téléphone</Label>
-                <Input {...register("telephone")} placeholder="05XXXXXXXX" />
+                <Input {...register("telephone")} placeholder="71 XXX XXX / 2X XXX XXX" />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input type="email" {...register("email")} placeholder="contact@fournisseur.com" />
+                <Input type="email" {...register("email")} placeholder="contact@fournisseur.tn" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Ville</Label>
-                <Input {...register("ville")} placeholder="ex: Alger, Oran..." />
+                <Input {...register("ville")} placeholder="ex: Tunis, Sousse, Sfax..." />
               </div>
               <div>
                 <Label>Pays</Label>
-                <Input {...register("pays")} placeholder="Algérie" />
+                <Input {...register("pays")} placeholder="Tunisie" />
               </div>
             </div>
 

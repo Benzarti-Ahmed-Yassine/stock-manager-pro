@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, Search, ShoppingCart, Trash2, Edit2, Filter,
-  Package, ChevronDown, Truck, CheckCircle2
+  Package, ChevronDown, Truck, CheckCircle2, FileSpreadsheet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { orderStorage, supplierStorage, stockStorage } from "@/lib/storage";
+import { exportOrdersToExcel } from "@/lib/excel";
 import { formatPrice, formatDate, generateId, cn } from "@/lib/utils";
 import type { Order, OrderStatus, OrderLine } from "@/types";
 import { toast } from "sonner";
@@ -179,9 +180,14 @@ export default function OrdersPage() {
           </h1>
           <p className="page-subtitle">Gestion des commandes et réapprovisionnement</p>
         </div>
-        <Button onClick={() => { setEditItem(null); reset({ status: "brouillon" }); setLines([addLine() as any]); setLines([]); setOpenDialog(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Nouvelle commande
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportOrdersToExcel} className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700">
+            <FileSpreadsheet className="w-4 h-4" /> Exporter Excel
+          </Button>
+          <Button onClick={() => { setEditItem(null); reset({ status: "brouillon" }); setLines([]); setOpenDialog(true); }} className="gap-2">
+            <Plus className="w-4 h-4" /> Nouvelle commande
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -444,7 +450,7 @@ export default function OrdersPage() {
                           </td>
                           <td className="px-2 py-1.5">
                             <Input
-                              type="number" min="0" className="h-7 text-xs w-24 text-right"
+                              type="number" min="0" step="0.001" className="h-7 text-xs w-24 text-right"
                               value={line.prixUnitaire}
                               onChange={e => updateLine(line.id, "prixUnitaire", Number(e.target.value))}
                             />
